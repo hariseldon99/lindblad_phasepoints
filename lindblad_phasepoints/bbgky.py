@@ -22,7 +22,7 @@ except ImportError:
   mkl_avail = False
 
 #Try to import lorenzo's optimized bbgky module, if available
-#import lindblad_bbgky as lb
+import lindblad_bbgky as lb
 
       
 def correlations(t_output, s, params):
@@ -116,8 +116,42 @@ class BBGKY_System:
     local_atoms = np.empty(local_size, dtype="float64")
     local_atoms = mpicomm.scatter(sendbuf, root = root)
     
-  def bbgky(self, time_info):
-    return None
+    def bbgky(self, time_info):
+      """
+      Evolves the BBGKY dynamics for selected phase points
+      call with bbgky(t), where t is an array of times
+      """
+      result = None
+      if type(time_info).__module__ == np.__name__ :
+	for mth_atom in self.local_atoms:
+	  (m, coord_m) = mth_atom.extract()
+	  excl = np.delete(self.atoms,m)
+ 	  data = []
+	  for alpha in xrange(8):
+	    #Set the density matrix
+	    #Set the initial conditions
+	    a = np.zeros((3,self.latsize))
+	    c = np.zeros((3,3,self.latsize, self.latsize))
+	    s_t = odeint(lindblad_bbgky_pywrap, \
+		  np.concatenate((a.flatten(),c.flatten())),\
+		    time_info, args=(self,), Dfun=None)
+	    am_t = s_t[:,0:3*self.latsize][:,:,m]
+	    data.append(am_t)
+	  afm_t = np.sum(data,axis=1).flatten()  
+	
+	if self.comm.rank != root: 
+	    recv = None 
+	    send = afm_t 
+	else: 
+	    recv = afm_t 
+	    send = None     
+	#TEST THIS    
+	gathers = afm_t.size #size of array to send
+	self.comm.Gatherv(sendbuf=[send, MPI.DOUBLE], \
+	  recvbuf=[recv, (gathers, None), MPI.DOUBLE], root=root)
+	if self.comm.rank == root:
+	  result = correlations(time_info, recv, self)
+      return result
      
   def evolve(self, time_info):
     """
@@ -150,7 +184,7 @@ class BBGKY_System:
 	1. The times, bound to the method t_output
 	2. A numpy array of vectors (only) at the times
     """
-    return self.bbgky(time_info, sampling)
+    return self.bbgky(time_info)
  
 if __name__ == '__main__':
     comm = MPI.COMM_WORLD
