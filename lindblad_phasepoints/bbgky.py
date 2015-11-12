@@ -13,6 +13,7 @@ from scipy.signal import fftconvolve
 
 from consts import *
 from classes import *
+from default_gather import *
 
 #Try to import mkl if it is available
 try:
@@ -127,11 +128,17 @@ class BBGKY_System:
 	  (m, coord_m) = mth_atom.extract()
 	  excl = np.delete(self.atoms,m)
  	  data = []
-	  for alpha in xrange(8):
+	  for alpha in xrange(nalphas):
 	    #Set the density matrix
-	    #Set the initial conditions
+	    #Set the initial conditions CHECK THIS
 	    a = np.zeros((3,self.latsize))
+	    a[0] = np.zeros(N)
+	    a[1] = np.zeros(N)
+	    a[2] = 0.5 * np.ones(N)
+	    a[m,:] = 0.5 * rvecs[alpha]
+	    #PLACEHOLDER BELOW. UPDATE THIS
 	    c = np.zeros((3,3,self.latsize, self.latsize))
+
 	    s_t = odeint(lindblad_bbgky_pywrap, \
 		  np.concatenate((a.flatten(),c.flatten())),\
 		    time_info, args=(self,), Dfun=None)
@@ -139,18 +146,9 @@ class BBGKY_System:
 	    data.append(am_t)
 	  afm_t = np.sum(data,axis=1).flatten()  
 	
-	if self.comm.rank != root: 
-	    recv = None 
-	    send = afm_t 
-	else: 
-	    recv = afm_t 
-	    send = None     
-	#TEST THIS    
-	gathers = afm_t.size #size of array to send
-	self.comm.Gatherv(sendbuf=[send, MPI.DOUBLE], \
-	  recvbuf=[recv, (gathers, None), MPI.DOUBLE], root=root)
+	fulldata = gather_to_root(self.comm, MPI.DOUBLE, data, root=root)
 	if self.comm.rank == root:
-	  result = correlations(time_info, recv, self)
+	  result = correlations(time_info, fulldata, self)
       return result
      
   def evolve(self, time_info):

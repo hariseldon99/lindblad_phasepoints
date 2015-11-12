@@ -9,3 +9,16 @@ deltaij = eye(3)
 eijk = zeros((3, 3, 3))
 eijk[0, 1, 2] = eijk[1, 2, 0] = eijk[2, 0, 1] = 1
 eijk[0, 2, 1] = eijk[2, 1, 0] = eijk[1, 0, 2] = -1
+
+#Number of phase points
+nalphas = 8
+
+#Phase point vectors
+rvecs = np.array([[1., 1., 1.],
+		  [1.,-1.,-1.],
+		  [1.,-1., 1.],
+		  [1., 1.,-1.],
+		  [1., 0., 1.],
+		  [1., 0.,-1.],
+		  [1., 1., 0.],
+		  [1.,-1., 0.]])
