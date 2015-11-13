@@ -37,11 +37,21 @@ eps (int i, int j, int k)
 }
 
 
+double kdel(int i, int j){
+  double result;
+  if(i==j)
+    result = 1.0;
+  else{
+    result = 0.0;
+  }
+  return result ;
+}
+
 int
-dsdgdt (double *wspace, double *s, double *hopmat, double *jvec, double *hvec,
-	int latsize, double norm, double *dsdt)
+dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat, double *dtkr ,
+	double drv_amp, int latsize, double *dsdt)
 {
-  double ncmprtol = 1e-10;	//Tolerance for comparing norm to unity
+
   //Pointer to cmat
   double *cmat, *dcdt_mat;
   int m, n, b, g;		//xyz indices
@@ -51,16 +61,6 @@ dsdgdt (double *wspace, double *s, double *hopmat, double *jvec, double *hvec,
   cmat = &s[3 * latsize];
   dcdt_mat = &dsdt[3 * latsize];
 
-  //Normalize
-  if (fabs (norm - 1.0) < ncmprtol)
-    {
-      for (i = 0; i < latsize; i++)
-	for (j = i + 1; j < latsize; j++)
-	  {
-	    hopmat[i + latsize * j] = hopmat[i + latsize * j] / norm;
-	    hopmat[j + latsize * i] = hopmat[i + latsize * j];
-	  }
-    }
   //Set the diagonals of cmats to 0
   for (m = 0; m < 3; m++)
     for (n = 0; n < 3; n++)
@@ -68,24 +68,22 @@ dsdgdt (double *wspace, double *s, double *hopmat, double *jvec, double *hvec,
 	cmat[((n + 3 * m) * latsize * latsize) + (i + latsize * i)] = 0.0;
 
   //Calculate the mean field contributions:
-  //mf_s^\alpha_i =  \sum_k s^\alpha_k * hopmat_{ki}
-  //mf_cmat^{\gamma + 3\beta}_{j+N*i} = \sum_k hopmat_{ik} * cmat^{\gamma+3\beta}_{i+N*k}
   double *mf_s, *mf_cmat;
 
   mf_s = &wspace[0];
   mf_cmat = &wspace[3 * latsize];
 
-  cblas_dsymm (CblasRowMajor, CblasRight, CblasUpper, 3, latsize, 1.0, hopmat,
-	       latsize, s, latsize, 0.0, mf_s, latsize);
+  //cblas_dsymm (CblasRowMajor, CblasRight, CblasUpper, 3, latsize, 1.0, hopmat,
+	       //latsize, s, latsize, 0.0, mf_s, latsize);
 
   for (b = 0; b < 3; b++)
     for (g = 0; g < 3; g++)
       {
 
-	cblas_dsymm (CblasRowMajor, CblasLeft, CblasUpper, latsize, latsize,
-		     1.0, hopmat, latsize,
-		     &cmat[(g + 3 * b) * latsize * latsize], latsize, 0.0,
-		     &mf_cmat[(g + 3 * b) * latsize * latsize], latsize);
+	//cblas_dsymm (CblasRowMajor, CblasLeft, CblasUpper, latsize, latsize,
+	//	     1.0, hopmat, latsize,
+	//	     &cmat[(g + 3 * b) * latsize * latsize], latsize, 0.0,
+	//	     &mf_cmat[(g + 3 * b) * latsize * latsize], latsize);
       }
 
   //Update the spins in dsdt
@@ -97,14 +95,11 @@ dsdgdt (double *wspace, double *s, double *hopmat, double *jvec, double *hvec,
 	  {
 	    for (b = 0; b < 3; b++)
 	      {
-		rhs -= hvec[b] * s[i + latsize * g] * eps (m, b, g);
-		rhs -=
-		  (mf_s[i + latsize * b] * s[i + latsize * g] +
-		   mf_cmat[((g + 3 * b) * latsize * latsize) +
-			   (i + latsize * i)]) * eps (m, b, g) * jvec[b];
+	        rhs =  0.0;
 	      }
 	  }
-	dsdt[i + latsize * m] = 2.0 * rhs;
+	rhs = -s[(i+3*m)];  
+	dsdt[i + latsize * m] = rhs;
       }
 
   //Update the correlations in dgdt 
@@ -117,108 +112,19 @@ dsdgdt (double *wspace, double *s, double *hopmat, double *jvec, double *hvec,
 	    {
 	      for (b = 0; b < 3; b++)
 		{
-		  rhs -=
-		    (jvec[n] * s[i + latsize * b] -
-		     jvec[m] * s[j + latsize * b]) * hopmat[j +
-							    latsize * i] *
-		    eps (m, n, b);
-		  for (g = 0; g < 3; g++)
-		    {
-		      rhs -=
-			(hvec[b] +
-			 jvec[b] * (mf_s[i + latsize * b] -
-				    hopmat[j + latsize * i] * s[j +
-								latsize *
-								b])) *
-			cmat[((n + 3 * g) * latsize * latsize) +
-			     (j + latsize * i)] * eps (b, g,
-						       m) + (hvec[b] +
-							     jvec[b] *
-							     (mf_s
-							      [j +
-							       latsize * b] -
-							      hopmat[i +
-								     latsize *
-								     j] *
-							      s[i +
-								latsize *
-								b])) *
-			cmat[((g + 3 * m) * latsize * latsize) +
-			     (j + latsize * i)] * eps (b, g, n);
-
-		      rhs -=
-			mf_cmat[((n + 3 * b) * latsize * latsize) +
-				(j + latsize * i)] * s[i +
-						       latsize * g] * eps (b,
-									   g,
-									   m)
-			* jvec[b] +
-			mf_cmat[((m + 3 * b) * latsize * latsize) +
-				(i + latsize * j)] * s[j +
-						       latsize * g] * eps (b,
-									   g,
-									   n)
-			* jvec[b];
-		    }
+		 rhs = 0.0;
+		 }
 		}
-
-	    }
+	    rhs = - cmat[((n + 3 * m) * latsize * latsize) +
+		     (j + latsize * i)];
+	    
 	    dcdt_mat[((n + 3 * m) * latsize * latsize) +
 		     (j + latsize * i)] = 2.0 * rhs;
 	    dcdt_mat[((m + 3 * n) * latsize * latsize) +
 		     (i + latsize * j)] = 2.0 * rhs;
 	  }
 
-  //Last term of bbgky dynamics eq (B4.b) in PRM i.e. arXiv:1510.03768
-  //Need to run over all indices here, no symmetrization
-  /*There is a bug here. */
-//   for (m = 0; m < 3; m++)
-//     for (n = 0; n < 3; n++)
-//       for (i = 0; i < latsize; i++)
-// 	for (j = 0; j < latsize; j++)
-// 	  {
-// 	    rhs = 0.0;
-// 	    for (b = 0; b < 3; b++)
-// 	      for (g = 0; g < 3; g++)
-// 		{
-// 		  rhs +=
-// 		    jvec[b] * hopmat[j +
-// 				     latsize * i] * (s[i +
-// 						       3 * m] *
-// 						     (cmat
-// 						      [(g +
-// 							3 * b) * latsize *
-// 						       latsize + (j +
-// 								  latsize *
-// 								  i)] + (s[i +
-// 									   3 *
-// 									   b]
-// 									 *
-// 									 s[j +
-// 									   3 *
-// 									   g])))
-// 		    * eps (b, g, n);
-// 		  rhs +=
-// 		    jvec[b] * hopmat[j +
-// 				     latsize * i] * (s[j +
-// 						       3 * n] *
-// 						     (cmat
-// 						      [(b +
-// 							3 * g) * latsize *
-// 						       latsize + (j +
-// 								  latsize *
-// 								  i)] + (s[i +
-// 									   3 *
-// 									   g]
-// 									 *
-// 									 s[j +
-// 									   3 *
-// 									   b])))
-// 		    * eps (b, g, m);
-// 		}
-// 	    dcdt_mat[((n + 3 * m) * latsize * latsize) +
-// 		     (j + latsize * i)] += 2.0 * rhs;
-// 	  }
+
 
   return 0;
 }

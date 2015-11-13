@@ -1,7 +1,7 @@
 # Some constant objects
-from numpy import eye, zeros
+from numpy import eye, zeros, array
 
-threshold = 1e-4
+threshold = 1e-6
 root = 0
 #This is the kronecker delta symbol for vector indices
 deltaij = eye(3)
@@ -14,7 +14,7 @@ eijk[0, 2, 1] = eijk[2, 1, 0] = eijk[1, 0, 2] = -1
 nalphas = 8
 
 #Phase point vectors
-rvecs = np.array([[1., 1., 1.],
+rvecs = array([[1., 1., 1.],
 		  [1.,-1.,-1.],
 		  [1.,-1., 1.],
 		  [1., 1.,-1.],

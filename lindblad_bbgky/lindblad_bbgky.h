@@ -5,6 +5,7 @@
 
 /* Functions */
 int eps (int i, int j, int k);
-
-int dsdgdt (double *, double *, double *, double *, double *, int,
-	    double, double *);
+double kdel(int i, int j);
+int
+dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat, double *dtkr ,
+	double drv_amp, int latsize, double *dsdt);

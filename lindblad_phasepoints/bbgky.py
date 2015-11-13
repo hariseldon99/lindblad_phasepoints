@@ -9,7 +9,7 @@ from scipy.integrate import odeint
 from pprint import pprint
 from tabulate import tabulate
 from scipy.signal import fftconvolve
-
+from numpy.linalg import norm
 
 from consts import *
 from classes import *
@@ -25,16 +25,15 @@ except ImportError:
 #Try to import lorenzo's optimized bbgky module, if available
 import lindblad_bbgky as lb
 
-      
-def correlations(t_output, s, params):
-  N = params.latsize
-  """
-  Compute \sum_{ij}<sx_i sx_j> -<sx>^2.
-  """
-  
-  return None
+def lindblad_bbgky_test_native(s, t, param):
+  N = param.latsize
+  stensor = s[0:3*N].reshape(3,N)
+  gtensor = s[3*N:].reshape(3,3,N,N)
+  dsdt = -stensor
+  dgdt = -gtensor
+  return np.concatenate((dsdt.flatten(), dgdt.flatten()))
 
-def lindblad_bbgky_pywrap(s, t, param):
+def lindblad_bbgky_test_pywrap(s, t, param):
     """
     Python wrapper to lindblad C bbgky module
     """
@@ -43,8 +42,11 @@ def lindblad_bbgky_pywrap(s, t, param):
     #Probably not wise to reshape b4 passing to a C routine.
     #By default, numpy arrays are contiguous, but reshaping...
     dsdt = np.zeros_like(s)
-    lb.bbgky(param.workspace, s, param.jmat.flatten(), \
-      param.jvec, param.hvec, param.latsize,param.norm,dsdt)
+    dtkr = np.array([(param.drv_freq * t) + \
+      param.kvec.dot(atom_mu.coords) for atom_mu in param.local_atoms])
+    
+    lb.bbgky(param.workspace, s, param.deltamat.flatten(), \
+      param.gammamat.flatten(), dtkr, param.drv_amp, param.latsize,dsdt)
     return dsdt
  
 class BBGKY_System:
@@ -91,6 +93,7 @@ class BBGKY_System:
     self.verbose = verbose
     r = self.cloud_rad
     N = params.latsize
+ 	
     if mpicomm.rank == root:
       #Create a workspace for mean field evaluaions
       self.workspace = np.zeros(3*N+9*N*N)
@@ -108,48 +111,88 @@ class BBGKY_System:
     self.atoms = mpicomm.bcast(self.atoms, root=root)  
     #Scatter local copies of the atoms
     if mpicomm.rank == root:
-      sendbuf = np.array_split(atoms,mpicomm.size)
-      local_size = np.array([spl.size for spl in atoms])
+      sendbuf = np.array_split(self.atoms,mpicomm.size)
+      local_size = np.array([spl.size for spl in sendbuf])
     else:
       sendbuf = None
       local_size = None
     local_size = mpicomm.scatter(local_size, root = root)
-    local_atoms = np.empty(local_size, dtype="float64")
-    local_atoms = mpicomm.scatter(sendbuf, root = root)
+    self.local_atoms = np.empty(local_size, dtype="float64")
+    self.local_atoms = mpicomm.scatter(sendbuf, root = root)
+    kmag = norm(params.kvec)
+    self.deltamat = np.zeros((N,N))
+    self.gammamat = np.eye(N)
+    for i in xrange(N):
+      r_i = self.atoms[i].coords
+      j=i+1
+      while(j<N):
+	r_j = self.atoms[j].coords
+	arg = kmag * norm(r_i-r_j)
+	if np.abs(kmag)< threshold:
+	  self.deltamat[i,j] = -0.5 
+	  self.gammamat[i,j] = 0.0
+	else:
+	  self.deltamat[i,j] = -0.5 * np.cos(arg)/arg
+	  self.gammamat[i,j] = np.sin(arg)/arg
+	j+=1
+    self.deltamat = self.deltamat + self.deltamat.T
+    self.gammamat = self.gammamat + self.gammamat.T
     
-    def bbgky(self, time_info):
-      """
-      Evolves the BBGKY dynamics for selected phase points
-      call with bbgky(t), where t is an array of times
-      """
-      result = None
-      if type(time_info).__module__ == np.__name__ :
-	for mth_atom in self.local_atoms:
-	  (m, coord_m) = mth_atom.extract()
-	  excl = np.delete(self.atoms,m)
- 	  data = []
-	  for alpha in xrange(nalphas):
-	    #Set the density matrix
-	    #Set the initial conditions CHECK THIS
-	    a = np.zeros((3,self.latsize))
-	    a[0] = np.zeros(N)
-	    a[1] = np.zeros(N)
-	    a[2] = 0.5 * np.ones(N)
-	    a[m,:] = 0.5 * rvecs[alpha]
-	    #PLACEHOLDER BELOW. UPDATE THIS
-	    c = np.zeros((3,3,self.latsize, self.latsize))
+    
+  def initconds(self, alpha, lattice_index):
+    N = self.latsize
+    m = lattice_index
+    a = np.zeros((3,self.latsize))
+    a[2] = np.ones(N)
+    a[:,m] = rvecs[alpha]
+    c = np.zeros((3,3,self.latsize, self.latsize))
+    return a, c
 
-	    s_t = odeint(lindblad_bbgky_pywrap, \
-		  np.concatenate((a.flatten(),c.flatten())),\
-		    time_info, args=(self,), Dfun=None)
-	    am_t = s_t[:,0:3*self.latsize][:,:,m]
-	    data.append(am_t)
-	  afm_t = np.sum(data,axis=1).flatten()  
-	
-	fulldata = gather_to_root(self.comm, MPI.DOUBLE, data, root=root)
-	if self.comm.rank == root:
-	  result = correlations(time_info, fulldata, self)
-      return result
+  def correlations(self, t_output, sdata):
+    N = self.latsize
+    """
+    Compute \sum_{ij}<sx_i sx_j> -<sx>^2.
+    """
+    posvecs = np.array([atom.coords for atom in self.atoms])
+    phases = np.exp(np.array([1j*self.kvec.dot(r) for r in posvecs]))
+    print(phases.shape, posvecs.shape)
+    c0 = np.multiply(phases, sdata[0,0,:]) +  \
+      (1j) * np.multiply(phases, sdata[0,1,:])
+    corrs = []
+    for t in t_output:
+      i = np.where(t_output == t)
+      ct = np.multiply(phases, sdata[i,0,:]) +  \
+      (1j) * np.multiply(phases, sdata[i,1,:])
+      c = fftconvolve(ct, c0)
+      corrs.append(c/(8.0*pow(2,N-1)))
+    
+    return np.array(corrs)
+    
+  def bbgky(self, time_info):
+    """
+    Evolves the BBGKY dynamics for selected phase points
+    call with bbgky(t), where t is an array of times
+    """
+    N = self.latsize
+    result = None
+    if type(time_info).__module__ == np.__name__ :
+      for mth_atom in self.local_atoms:
+	(m, coord_m) = mth_atom.extract()
+	data = []
+	for alpha in xrange(nalphas):
+	  a, c = self.initconds(alpha, m)
+	  
+	  s_t = odeint(lindblad_bbgky_test_pywrap, \
+		np.concatenate((a.flatten(),c.flatten())),\
+		  time_info, args=(self,), Dfun=None)
+	  am_t = s_t[:,0:3*self.latsize][:,m:-1:N]
+	  data.append(am_t)
+	afm_t = np.sum(data,axis=1).flatten()  
+      
+      fulldata = gather_to_root(self.comm, MPI.DOUBLE, np.array(data), root=root)
+      if self.comm.rank == root:
+	result = self.correlations(time_info, fulldata)
+    return result
      
   def evolve(self, time_info):
     """
