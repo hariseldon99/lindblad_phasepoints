@@ -29,6 +29,7 @@ source /etc/profile.d/modules.sh
 #Load relevant modules. Load them with THESE TWO LINES, NOT FROM ONE LINE
 module load dot intel
 module load gcc/4.9.1 Anaconda/2.1.0
+module load lib/atlas/3.10.2
 
 cd $PBS_O_WORKDIR
 
