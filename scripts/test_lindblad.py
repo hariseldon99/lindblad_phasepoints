@@ -16,11 +16,11 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 11
+  lattice_size = 40
   l = lattice_size
-  k = np.array([0.0,0.0])
+  k = np.array([0.0,0.0,0.0])
   amp = 1.0
-  frq = 0.0
+  frq = 0.3
   rad = 1.0
     
     
@@ -36,17 +36,24 @@ def run_lb():
   ncyc = 1.0
   nsteps = 100
   times = np.linspace(t0, ncyc, nsteps)
-
+  timestep = times[1]-times[0]
   corrdata = d.evolve(times)
   
+  
   if rank == 0:
+    freqs = np.fft.fftfreq(corrdata.size, d=timestep)
+    spectrum = np.fft.fft(corrdata)
     #Prepare the output files. One for each observable
     fname = "corr_time_" + "amp_" + str(amp) + "_frq" + str(frq) 
     fname += "_cldrad" + str(rad) + "kx_" + str(k[0]) + "ky_" 
     fname += str(k[1]) + "N_" + str(l) + ".txt"
 
     #Dump each observable to a separate file
-    np.savetxt(fname, np.vstack((times, corrdata)).T, delimiter=' ')
+    np.savetxt(fname, np.vstack((np.abs(times), np.abs(corrdata))).T, delimiter=' ')
+    fname = "spectrum_omega_" + "amp_" + str(amp) + "_frq" + str(frq) 
+    fname += "_cldrad" + str(rad) + "kx_" + str(k[0]) + "ky_" 
+    fname += str(k[1]) + "N_" + str(l) + ".txt"
+    np.savetxt(fname, np.vstack((np.abs(freqs), np.abs(spectrum))).T, delimiter=' ')
 
 if __name__ == '__main__':
   run_lb()

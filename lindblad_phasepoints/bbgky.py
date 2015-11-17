@@ -101,7 +101,7 @@ class BBGKY_System:
 	dtype=np.float64, requirements=['A', 'O', 'W', 'C'])
       #Build the gas cloud of atoms
       self.atoms = np.array(\
-	[Atom(coords = r * np.random.random(2), index = i) \
+	[Atom(coords = r * np.random.random(3), index = i) \
 	  for i in xrange(N)]) 
     else:
       self.workspace = None
@@ -148,34 +148,39 @@ class BBGKY_System:
     c = np.zeros((3,3,self.latsize, self.latsize))
     return a, c
 
-  def correlations(self, t_output, sdata):
-    N = self.latsize
+  def field_correlations(self, t_output, sdata):
     """
-    Compute \sum_{ij}<sx_i sx_j> -<sx>^2.
+    Compute the field correlations in
+    times t_output wrt correlations at
+    t_output[0]
     """
-    posvecs = np.array([atom.coords for atom in self.atoms])
-    phases = np.exp(np.array([1j*self.kvec.dot(r) for r in posvecs]))
-    print(phases.shape, posvecs.shape)
-    c0 = np.multiply(phases, sdata[0,0,:]) +  \
-      (1j) * np.multiply(phases, sdata[0,1,:])
-    corrs = []
-    for t in t_output:
-      i = np.where(t_output == t)
-      ct = np.multiply(phases, sdata[i,0,:]) +  \
-      (1j) * np.multiply(phases, sdata[i,1,:])
-      c = fftconvolve(ct, c0)
-      corrs.append(c/(8.0*pow(2,N-1)))
     
+    N = self.latsize
+    phases = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
+      for atom in self.atoms])
+    phases_conj = np.conjugate(phases)
+    ek0_dagger = np.multiply(phases, sdata[:,0,0]) +  \
+      (1j) * np.multiply(phases, sdata[:,0,1])
+    corrs = []
+    for ti, t in np.ndenumerate(t_output):
+      ekt = np.multiply(phases_conj, sdata[:,ti[0],0]) -  \
+      (1j) * np.multiply(phases_conj, sdata[:,ti[0],1])
+      c = np.sum(fftconvolve(ek0_dagger, ekt))
+      #Normalize over alphasums of initial correlations 
+      #and append
+      corrs.append(c/(8.0*pow(2,N-1)))
     return np.array(corrs)
     
   def bbgky(self, time_info):
     """
     Evolves the BBGKY dynamics for selected phase points
     call with bbgky(t), where t is an array of times
+    returns the field correlations wrt the initial field
     """
     N = self.latsize
     result = None
     if type(time_info).__module__ == np.__name__ :
+      localdata = []
       for mth_atom in self.local_atoms:
 	(m, coord_m) = mth_atom.extract()
 	data = []
@@ -185,13 +190,14 @@ class BBGKY_System:
 	  s_t = odeint(lindblad_bbgky_test_pywrap, \
 		np.concatenate((a.flatten(),c.flatten())),\
 		  time_info, args=(self,), Dfun=None)
-	  am_t = s_t[:,0:3*self.latsize][:,m:-1:N]
+	  am_t = s_t[:,0:3*self.latsize][:,m::N]
 	  data.append(am_t)
-	afm_t = np.sum(data,axis=1).flatten()  
-      
-      fulldata = gather_to_root(self.comm, MPI.DOUBLE, np.array(data), root=root)
+	afm_t = np.sum(np.array(data), axis=0)
+	localdata.append(afm_t)
+	
+      fulldata = gather_to_root(self.comm, np.array(localdata), root=root)
       if self.comm.rank == root:
-	result = self.correlations(time_info, fulldata)
+	result = self.field_correlations(time_info, fulldata)
     return result
      
   def evolve(self, time_info):
@@ -221,9 +227,8 @@ class BBGKY_System:
 			      See the relevant docs for scipy.integrate.odeint.
 
       Return value: 
-      An tuple object that contains:
-	1. The times, bound to the method t_output
-	2. A numpy array of vectors (only) at the times
+      An tuple object that contains
+	t. A numpy array of field correlations at time wrt field at time[0]
     """
     return self.bbgky(time_info)
  

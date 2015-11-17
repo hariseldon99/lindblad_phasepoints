@@ -1,9 +1,24 @@
 import numpy as np
+from mpi4py import MPI
 
-def gather_to_root(mpcomm, datatype, data, root=0):
-  datasize_loc = data.size
-  datadisp_loc = mpcomm.rank
+def fib1(sizes):
+  fib = np.zeros(sizes.size)
+  for i, val in np.ndenumerate(sizes):
+    (i,) = i
+    fib[i] = np.sum(sizes[0:i])
+  return fib
 
+def gather_to_root(mpcomm, data, root=0):
+  """
+  Facilitates MPI Gather of all spin data for the atoms distributed 
+  in the MPI Communicator
+  """
+  datasize_loc = data.flatten().size
+  
+  (locatoms, times, xyz) =  data.shape
+  
+  natoms = mpcomm.reduce(locatoms, op=MPI.SUM, root=root)
+  
   if mpcomm.rank == root:
     allsizes = np.zeros(mpcomm.size)
   else:
@@ -12,12 +27,11 @@ def gather_to_root(mpcomm, datatype, data, root=0):
   allsizes = mpcomm.gather(datasize_loc,allsizes, root=0)
 
   if mpcomm.rank == root:
-    alldisps = np.zeros(mpcomm.size)
-    for n in xrange(mpcomm.size):
-      alldisps[n] = alldisps[n-1] + allsizes[n] - 1
+    alldisps = fib1(np.array(allsizes))	  
   else:
     alldisps = None
-
+  alldisps = np.array(alldisps)
+ 
   mpcomm.Barrier()
 
   if mpcomm.rank == root:
@@ -28,6 +42,9 @@ def gather_to_root(mpcomm, datatype, data, root=0):
   else:
     recvbuffer = None
     
-  mpcomm.Gatherv(data,[recvbuffer,allsizes,alldisps, datatype])
+  mpcomm.Gatherv(data,[recvbuffer,allsizes,alldisps, MPI.DOUBLE])
+  
+  if mpcomm.rank == root:
+    recvbuffer = recvbuffer.reshape(natoms, times, xyz)
 
   return recvbuffer

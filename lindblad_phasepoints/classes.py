@@ -15,7 +15,7 @@ class ParamData:
     
     def __init__(self, latsize=11, \
 			  drv_amp=1.0, drv_freq=0.0, cloud_rad = 1.0,\
-			    kvec=np.array([0.0,0.0])):
+			    kvec=np.array([0.0,0.0,0.0])):
       
       """
        Usage:
@@ -76,16 +76,16 @@ class Atom:
        Return value: 
        An atom object  
       """
-      if(coords.size == 2):
+      if(coords.size == 3):
 	self.index = index
 	self.coords = coords
       else:
-	raise ValueError('Incorrect 2D coordinates %d' % (coords))
+	raise ValueError('Incorrect 3D coordinates %d' % (coords))
     
   def extract(self):
     """
     Usage:
-    a = atom(coords = (1.2,0.4), index = 3)
+    a = atom(coords = (1.2,0.4, 0.5), index = 3)
     print a.extract()
     
     Returns a tuple containing the atom's count index and
@@ -97,5 +97,7 @@ class Atom:
     """
     Returns the distance between 2 atoms
     """
-    sc, oc = self.coords, other_atom.coords
-    return math.hypot((sc-oc)[0], (sc-oc)[1])
+    (x1,y1,z1), (x2,y2,z2) = self.coords, other_atom.coords 
+    return np.sqrt((x1-x2)**2 + (y1-y2)**2 + (z1-z2)**2)
+  
+  
