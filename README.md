@@ -1,7 +1,7 @@
 lindblad_phasepoints
 =============
 
- BGKY dynamics for open (Lindbladian) quantum spin gases in a radiation field, averaged over phase point operators
+ BBGKY dynamics for open (Lindbladian) quantum spin gases in a radiation field, averaged over phase point operators
 
 Introduction
 -----

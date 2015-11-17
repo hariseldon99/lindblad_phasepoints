@@ -92,9 +92,14 @@ class BBGKY_System:
     #Booleans for verbosity and for calculating site data
     self.verbose = verbose
     r = self.cloud_rad
-    N = params.latsize
+    N = self.latsize
  	
     if mpicomm.rank == root:
+      if self.verbose:
+          out = copy.copy(self)
+          out.deltamn = 0.0
+          pprint(vars(out), depth=2)
+
       #Create a workspace for mean field evaluaions
       self.workspace = np.zeros(3*N+9*N*N)
       self.workspace = np.require(self.workspace, \
@@ -119,7 +124,6 @@ class BBGKY_System:
     local_size = mpicomm.scatter(local_size, root = root)
     self.local_atoms = np.empty(local_size, dtype="float64")
     self.local_atoms = mpicomm.scatter(sendbuf, root = root)
-    kmag = norm(params.kvec)
     self.deltamat = np.zeros((N,N))
     self.gammamat = np.eye(N)
     for i in xrange(N):
@@ -127,13 +131,9 @@ class BBGKY_System:
       j=i+1
       while(j<N):
 	r_j = self.atoms[j].coords
-	arg = kmag * norm(r_i-r_j)
-	if np.abs(kmag)< threshold:
-	  self.deltamat[i,j] = -0.5 
-	  self.gammamat[i,j] = 0.0
-	else:
-	  self.deltamat[i,j] = -0.5 * np.cos(arg)/arg
-	  self.gammamat[i,j] = np.sin(arg)/arg
+	arg = norm(r_i-r_j)
+	self.deltamat[i,j] = -0.5 * np.cos(arg)/arg
+	self.gammamat[i,j] = np.sin(arg)/arg
 	j+=1
     self.deltamat = self.deltamat + self.deltamat.T
     self.gammamat = self.gammamat + self.gammamat.T
@@ -194,12 +194,45 @@ class BBGKY_System:
 	  data.append(am_t)
 	afm_t = np.sum(np.array(data), axis=0)
 	localdata.append(afm_t)
-	
-      fulldata = gather_to_root(self.comm, np.array(localdata), root=root)
+      if self.verbose:
+          fulldata , distribution = gather_to_root(self.comm, \
+                  np.array(localdata), root=root)
+          if self.comm.rank == root:
+              print ("\nDistribution of atoms in grid\n")
+              distro_table = tabulate(zip(np.arange(distribution.size),\
+                      distribution), headers=["CPU rank","Local no. of atoms"],\
+                        tablefmt="grid")
+              print(distro_table)
+              print ("\nStatistics of atoms in the volume\n")
+              xlocs = np.array([atom.coords[0] for atom in self.atoms])
+              ylocs = np.array([atom.coords[1] for atom in self.atoms])
+              zlocs = np.array([atom.coords[2] for atom in self.atoms])
+            
+              atoms_table =\
+                      [["xmax", np.amax(xlocs)],\
+                      ["ymax", np.amax(ylocs)],\
+                      ["zmax", np.amax(zlocs)],\
+                      ["xmin", np.amin(xlocs)],\
+                      ["ymin", np.amin(ylocs)],\
+                      ["zmin", np.amin(zlocs)],\
+                      ["xmean", np.mean(xlocs)],\
+                      ["ymean", np.mean(ylocs)],\
+                      ["zmean", np.mean(zlocs)],\
+                      ["x_sd", np.std(xlocs)], \
+                      ["y_sd", np.std(ylocs)], \
+                      ["z_sd", np.std(zlocs)]]
+
+              print (tabulate(atoms_table, tablefmt="fancy_grid", \
+                      floatfmt=".2f")) 
+      else:
+          fulldata = gather_to_root(self.comm, \
+                  np.array(localdata), root=root)
+          distribution = None
       if self.comm.rank == root:
 	result = self.field_correlations(time_info, fulldata)
-    return result
-     
+      
+      return (result, distribution)
+
   def evolve(self, time_info):
     """
     This function calls the lsode 'odeint' integrator from scipy package

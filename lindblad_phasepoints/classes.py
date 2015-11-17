@@ -15,7 +15,7 @@ class ParamData:
     
     def __init__(self, latsize=11, \
 			  drv_amp=1.0, drv_freq=0.0, cloud_rad = 1.0,\
-			    kvec=np.array([0.0,0.0,0.0])):
+			    kvec_theta=0.0, kvec_phi=0.0):
       
       """
        Usage:
@@ -25,15 +25,18 @@ class ParamData:
        All parameters (arguments) are optional.
        
        Parameters:
-       latsize  =  The size of your lattice as an integer. This can be in 
-		   any dimensions
-       drv_amp =   The periodic (cosine) drive amplitude 
-		   Defaults to 1.0.
-       drv_freq =  The periodic (cosine) drive frequency 
-		   Defaults to 0.0.
-       cloud_rad = The radius of the gas cloud of atoms. Defaults to 1.0
-       kvec	 = Momentum of radiation field as an numpy array of dim 2
-			   
+       latsize    =  The size of your lattice as an integer. This can be in 
+		     any dimensions
+       drv_amp    =   The periodic (cosine) drive amplitude 
+		      Defaults to 1.0.
+       drv_freq   =  The periodic (cosine) drive frequency 
+		     Defaults to 0.0.
+       cloud_rad  =  The radius of the gas cloud of atoms. Defaults to 1.0
+       kvec_theta =  Azimuthal angle of incident laser beam
+                     Note that the momentum (magnitude) is scaled to unity
+       kvec_phi   =  Polar angle of incident laser beam
+		     Note that the momentum (magnitude) is scaled to unity
+
        Return value: 
        An object that stores all the parameters above. 
       """
@@ -41,7 +44,10 @@ class ParamData:
       self.latsize = latsize
       self.drv_amp, self.drv_freq = drv_amp, drv_freq
       self.cloud_rad = cloud_rad
-      self.kvec = kvec
+      kx = np.sin(kvec_theta) * np.cos(kvec_phi)
+      ky = np.sin(kvec_theta) * np.sin(kvec_phi)
+      kz = np.cos(kvec_theta)
+      self.kvec = np.array([kx,ky,kz])
       N = self.latsize
       self.fullsize_2ndorder = 3 * N + 9 * N**2
       self.deltamn = np.eye(N)

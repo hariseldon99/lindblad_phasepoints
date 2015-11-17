@@ -19,13 +19,15 @@ def gather_to_root(mpcomm, data, root=0):
   
   natoms = mpcomm.reduce(locatoms, op=MPI.SUM, root=root)
   
-  if mpcomm.rank == root:
+  if mpcomm.rank == root:  
     allsizes = np.zeros(mpcomm.size)
+    distrib_atoms = np.zeros_like(allsizes)
   else:
     allsizes = None
+    distrib_atoms = None
 
   allsizes = mpcomm.gather(datasize_loc,allsizes, root=0)
-
+  distrib_atoms = mpcomm.gather(locatoms, distrib_atoms, root=0)
   if mpcomm.rank == root:
     alldisps = fib1(np.array(allsizes))	  
   else:
@@ -47,4 +49,4 @@ def gather_to_root(mpcomm, data, root=0):
   if mpcomm.rank == root:
     recvbuffer = recvbuffer.reshape(natoms, times, xyz)
 
-  return recvbuffer
+  return recvbuffer, np.array(distrib_atoms)
