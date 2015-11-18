@@ -14,7 +14,6 @@ def gather_to_root(mpcomm, data, root=0):
   in the MPI Communicator
   """
   datasize_loc = data.flatten().size
-  
   (locatoms, times, xyz) =  data.shape
   
   natoms = mpcomm.reduce(locatoms, op=MPI.SUM, root=root)

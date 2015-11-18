@@ -17,8 +17,8 @@ wrap_bbgky (PyObject * self, PyObject * args)
   int latsize, ret;
 
   if (!PyArg_ParseTuple
-      (args, "OOOOOdiO!", &arg0, &arg1, &arg2, &arg3, &arg4, &drv_amp, &latsize,
-       &PyArray_Type, &out))
+      (args, "OOOOOdiO!", &arg0, &arg1, &arg2, &arg3, &arg4, &drv_amp,
+       &latsize, &PyArray_Type, &out))
     return NULL;
 
   workspace = PyArray_FROM_OTF (arg0, NPY_DOUBLE, NPY_IN_ARRAY);

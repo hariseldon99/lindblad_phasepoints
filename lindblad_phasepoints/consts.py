@@ -1,6 +1,6 @@
 # Some constant objects
 from numpy import eye, zeros, array
-
+seed = 8
 threshold = 1e-6
 root = 0
 #This is the kronecker delta symbol for vector indices

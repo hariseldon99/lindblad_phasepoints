@@ -25,29 +25,44 @@ except ImportError:
 #Try to import lorenzo's optimized bbgky module, if available
 import lindblad_bbgky as lb
 
-def lindblad_bbgky_test_native(s, t, param):
-  N = param.latsize
-  stensor = s[0:3*N].reshape(3,N)
-  gtensor = s[3*N:].reshape(3,3,N,N)
-  dsdt = -stensor
-  dgdt = -gtensor
-  return np.concatenate((dsdt.flatten(), dgdt.flatten()))
+#def lindblad_bbgky_test_native(s, t, param):
+#  N = param.latsize
+#  stensor = s[0:3*N].reshape(3,N)
+#  gtensor = s[3*N:].reshape(3,3,N,N)
+#  dsdt = -stensor
+#  dgdt = -gtensor
+#  return np.concatenate((dsdt.flatten(), dgdt.flatten()))
 
-def lindblad_bbgky_test_pywrap(s, t, param):
-    """
-    Python wrapper to lindblad C bbgky module
-    """
-    #s[0:3N]  is the tensor s^l_\mu
-    #G = s[3*N:].reshape(3,3,N,N) is the tensor g^{ab}_{\mu\nu}.
-    #Probably not wise to reshape b4 passing to a C routine.
-    #By default, numpy arrays are contiguous, but reshaping...
-    dsdt = np.zeros_like(s)
-    dtkr = np.array([(param.drv_freq * t) + \
-      param.kvec.dot(atom_mu.coords) for atom_mu in param.local_atoms])
-    
-    lb.bbgky(param.workspace, s, param.deltamat.flatten(), \
-      param.gammamat.flatten(), dtkr, param.drv_amp, param.latsize,dsdt)
-    return dsdt
+#def lindblad_bbgky_test_pywrap(s, t, param):
+#    """
+#    Python wrapper to lindblad C bbgky module
+#    """
+#    #s[0:3N]  is the tensor s^l_\mu
+#    #G = s[3*N:].reshape(3,3,N,N) is the tensor g^{ab}_{\mu\nu}.
+#    #Probably not wise to reshape b4 passing to a C routine.
+#    #By default, numpy arrays are contiguous, but reshaping...
+#    dsdt = np.zeros_like(s)
+#    dtkr = np.array([(param.drv_freq * t) + \
+#      param.kvec.dot(atom_mu.coords) for atom_mu in param.local_atoms])
+#    
+#    lb.bbgky(param.workspace, s, param.deltamat.flatten(), \
+#      param.gammamat.flatten(), dtkr, param.drv_amp, param.latsize,dsdt)
+#    return dsdt
+
+def lindblad_bbgky_pywrap(s, t, param):
+   """
+   Python wrapper to lindblad C bbgky module
+   """
+   #s[0:3N]  is the tensor s^l_\mu
+   #G = s[3*N:].reshape(3,3,N,N) is the tensor g^{ab}_{\mu\nu}.
+   #Probably not wise to reshape b4 passing to a C routine.
+   #By default, numpy arrays are contiguous, but reshaping...
+   dsdt = np.zeros_like(s)   
+   lb.bbgky(param.workspace, s, param.deltamat.flatten(), \
+     param.gammamat.flatten(), (param.kr + param.drv_freq * t),\
+       param.drv_amp, param.latsize,dsdt)
+   return dsdt
+
  
 class BBGKY_System:
   """
@@ -101,10 +116,11 @@ class BBGKY_System:
           pprint(vars(out), depth=2)
 
       #Create a workspace for mean field evaluaions
-      self.workspace = np.zeros(3*N+9*N*N)
+      self.workspace = np.zeros(2*(3*N+9*N*N))
       self.workspace = np.require(self.workspace, \
 	dtype=np.float64, requirements=['A', 'O', 'W', 'C'])
       #Build the gas cloud of atoms
+      np.random.seed(seed)
       self.atoms = np.array(\
 	[Atom(coords = r * np.random.random(3), index = i) \
 	  for i in xrange(N)]) 
@@ -137,6 +153,8 @@ class BBGKY_System:
 	j+=1
     self.deltamat = self.deltamat + self.deltamat.T
     self.gammamat = self.gammamat + self.gammamat.T
+    self.kr = np.array([self.kvec.dot(atom_mu.coords) \
+      for atom_mu in self.local_atoms])
     
     
   def initconds(self, alpha, lattice_index):
@@ -187,7 +205,7 @@ class BBGKY_System:
 	for alpha in xrange(nalphas):
 	  a, c = self.initconds(alpha, m)
 	  
-	  s_t = odeint(lindblad_bbgky_test_pywrap, \
+	  s_t = odeint(lindblad_bbgky_pywrap, \
 		np.concatenate((a.flatten(),c.flatten())),\
 		  time_info, args=(self,), Dfun=None)
 	  am_t = s_t[:,0:3*self.latsize][:,m::N]
