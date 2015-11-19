@@ -16,7 +16,7 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 8
+  lattice_size = 12
   l = lattice_size
   amp = 1.0
   frq = 0.8
