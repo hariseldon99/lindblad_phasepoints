@@ -4,9 +4,13 @@ import numpy as np
 #Change these as needed
 blas_path = '/usr/lib'
 blas_headers = '/usr/include'
+#Order of optimization or any other compiler options you wanna add
+opt = "-O3"
 
 lindblad_bbgky = Extension('lindblad_bbgky',\
   include_dirs = [np.get_include(),blas_headers],\
+   extra_compile_args = [opt],\
+    extra_link_args = [opt],\
     libraries = ['blas'],\
       library_dirs = [blas_path],\
 	sources = ['lindblad_bbgky/bbgkymodule.c', \
@@ -15,11 +19,13 @@ lindblad_bbgky = Extension('lindblad_bbgky',\
 setup (name = 'lindblad_phasepoints',
         version = '1.0',
         description = """BBGKY dynamics for open (Lindbladian) quantum 
-			  spin gases in a radiation field, averaged over phase point operators""",
+			  spin gases in a radiation field, averaged over 
+			  phase point operators""",
         long_description=\
 	  """
 	      BBGKY dynamics for open (Lindbladian) quantum 
-	      spin gases in a radiation field, averaged over phase point operators
+	      spin gases in a radiation field, averaged over 
+	      phase point operators
 	    * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	    * Copyright (c) 2015 Analabha Roy (daneel@utexas.edu)
 	    *

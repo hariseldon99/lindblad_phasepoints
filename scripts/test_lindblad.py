@@ -16,7 +16,7 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 12
+  lattice_size = 5
   l = lattice_size
   amp = 1.0
   frq = 0.8
@@ -32,8 +32,8 @@ def run_lb():
 
   #Prepare the times
   t0 = 0.0
-  ncyc = 20.0
-  nsteps = 1000
+  ncyc = 3.0
+  nsteps = 300
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   corrdata, distribution = d.evolve(times)

@@ -23,7 +23,7 @@ except ImportError:
   mkl_avail = False
 
 #Try to import lorenzo's optimized bbgky module, if available
-import lindblad_bbgky as lb
+import lindblad_bbgky as lbbgky
 
 def lindblad_bbgky_test_native(s, t, param):
   N = param.latsize
@@ -58,7 +58,7 @@ def lindblad_bbgky_pywrap(s, t, param):
    #Probably not wise to reshape b4 passing to a C routine.
    #By default, numpy arrays are contiguous, but reshaping...
    dsdt = np.zeros_like(s)   
-   lb.bbgky(param.workspace, s, param.deltamat.flatten(), \
+   lbbgky.bbgky(param.workspace, s, param.deltamat.flatten(), \
      param.gammamat.flatten(), (param.kr + param.drv_freq * t),\
        param.drv_amp, param.latsize,dsdt)
    return dsdt
@@ -202,10 +202,10 @@ class BBGKY_System:
 	data = []
 	for alpha in xrange(nalphas):
 	  a, c = self.initconds(alpha, m)
-	  
-	  s_t = odeint(lindblad_bbgky_test_native, \
+	  s_t = odeint(lindblad_bbgky_pywrap, \
 		np.concatenate((a.flatten(),c.flatten())),\
 		  time_info, args=(self,), Dfun=None)
+
 	  am_t = s_t[:,0:3*self.latsize][:,m::N]
 	  data.append(am_t)
 	afm_t = np.sum(np.array(data), axis=0)
