@@ -74,8 +74,8 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 	cmat[((n + 3 * m) * latsize * latsize) + (i + latsize * i)] = 0.0;
 
   //Calculate the mean field contributions:
-  double *mf_sp, *mf_cmatp;	//Colvolution with deltamat
-  double *mf_sm, *mf_cmatm;	//Colvolution with gammamat
+  double *mf_sp, *mf_cmatp;	//Convolution with deltamat
+  double *mf_sm, *mf_cmatm;	//Convolution with gammamat
 
   mf_sp = &wspace[0];
   mf_cmatp = &wspace[3 * latsize];
@@ -85,8 +85,11 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 
   cblas_dsymm (CblasRowMajor, CblasRight, CblasUpper, 3, latsize, 1.0,
 	       deltamat, latsize, s, latsize, 0.0, mf_sp, latsize);
+
+  //REMOVE FATTY TERM FROM DIAGONAL PART OF GAMMAMAT, WHICH MUST BE UNITY
+  memcpy (mf_sm, s, (3 * latsize) * sizeof *s);
   cblas_dsymm (CblasRowMajor, CblasRight, CblasUpper, 3, latsize, 1.0,
-	       gammamat, latsize, s, latsize, 0.0, mf_sm, latsize);
+	       gammamat, latsize, s, latsize, -1.0, mf_sm, latsize);
 
   for (b = 0; b < 3; b++)
     for (k = 0; k < 3; k++)
@@ -96,11 +99,16 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		     1.0, deltamat, latsize,
 		     &cmat[(k + 3 * b) * latsize * latsize], latsize, 0.0,
 		     &mf_cmatp[(k + 3 * b) * latsize * latsize], latsize);
+	//REMOVE FATTY TERM FROM DIAGONAL PART OF GAMMAMAT, WHICH MUST BE UNITY
+	memcpy (&mf_cmatm[(k + 3 * b) * latsize * latsize],
+		&cmat[(k + 3 * b) * latsize * latsize],
+		(latsize * latsize) * sizeof *cmat);
 	cblas_dsymm (CblasRowMajor, CblasLeft, CblasUpper, latsize, latsize,
 		     1.0, gammamat, latsize,
-		     &cmat[(k + 3 * b) * latsize * latsize], latsize, 0.0,
+		     &cmat[(k + 3 * b) * latsize * latsize], latsize, -1.0,
 		     &mf_cmatm[(k + 3 * b) * latsize * latsize], latsize);
       }
+
 
   //Update the spins in dsdt
   for (i = 0; i < latsize; i++)
@@ -110,13 +118,17 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
       for (m = 0; m < 3; m++)
 	{
 	  rhs_iter = 0.0;
+	  rhs = 0.0;
 	  for (n = 0; n < 3; n++)
 	    {
-	      rhs =
-		drv_amp * cmat[i +
-			       latsize * n] * (cos_dtkr_i * eps (0, n,
-								 m) +
-					       sin_dtkr_i * eps (1, n, m));
+	      rhs +=
+		s[i + latsize * n] * (cos_dtkr_i * eps (0, n, m) +
+				      sin_dtkr_i * eps (1, n, m));
+	    }
+	  rhs_iter += drv_amp * rhs;
+	  rhs = 0.0;
+	  for (n = 0; n < 3; n++)
+	    {
 	      rhs +=
 		eps (0, n,
 		     m) * (s[i + latsize * n] * mf_sp[i + latsize * 0] +
@@ -138,10 +150,10 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 				 mf_cmatm[((0 + 3 * n) * latsize * latsize) +
 					  (i + latsize * i)]);
 
-	      rhs_iter += rhs;
 	    }
+	  rhs_iter += rhs;
 	  rhs_iter -=
-	    0.5 * cmat[i + latsize * m] * ((1.0 + kdel (2, m)) + kdel (2, m));
+	    0.5 * s[i + latsize * m] * (1.0 + kdel (2, m)) - kdel (2, m);
 	  dsdt[i + latsize * m] = rhs_iter;
 	}
     }

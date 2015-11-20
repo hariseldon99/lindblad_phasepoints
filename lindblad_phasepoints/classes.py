@@ -14,8 +14,7 @@ class ParamData:
     """
     
     def __init__(self, latsize=11, \
-			  drv_amp=1.0, drv_freq=0.0, cloud_rad = 1.0,\
-			    kvec_theta=0.0, kvec_phi=0.0):
+			  amplitude=1.0, detuning=0.0, cloud_rad = 1.0):
       
       """
        Usage:
@@ -27,31 +26,24 @@ class ParamData:
        Parameters:
        latsize    =  The size of your lattice as an integer. This can be in 
 		     any dimensions
-       drv_amp    =   The periodic (cosine) drive amplitude 
-		      Defaults to 1.0.
-       drv_freq   =  The periodic (cosine) drive frequency 
+       amplitude  =  The periodic (cosine) drive amplitude 
+		     Defaults to 1.0.
+       detuning   =  The periodic (cosine) drive frequency, i.e.
+		     detuning between atomic levels and incident light.
 		     Defaults to 0.0.
        cloud_rad  =  The radius of the gas cloud of atoms. Defaults to 1.0
-       kvec_theta =  Azimuthal angle of incident laser beam
-                     Note that the momentum (magnitude) is scaled to unity
-       kvec_phi   =  Polar angle of incident laser beam
-		     Note that the momentum (magnitude) is scaled to unity
 
        Return value: 
        An object that stores all the parameters above. 
+       Note that the momentum (magnitude) of theincidentlight
+       is scaled to unity and propagates in the z-direction
       """
 
       self.latsize = latsize
-      self.drv_amp, self.drv_freq = drv_amp, drv_freq
+      self.drv_amp, self.drv_freq = amplitude, detuning
       self.cloud_rad = cloud_rad
-      kx = np.sin(kvec_theta) * np.cos(kvec_phi)
-      ky = np.sin(kvec_theta) * np.sin(kvec_phi)
-      kz = np.cos(kvec_theta)
-      self.kvec = np.array([kx,ky,kz])
-      N = self.latsize
-      self.fullsize_2ndorder = 3 * N + 9 * N**2
-      self.deltamn = np.eye(N)
- 
+      #Set the momentum to be unit magnitude in z direction
+      self.kvec = np.array([0.0, 0.0, 1.0]) 
 	  
 class Atom:
   """
@@ -87,23 +79,3 @@ class Atom:
 	self.coords = coords
       else:
 	raise ValueError('Incorrect 3D coordinates %d' % (coords))
-    
-  def extract(self):
-    """
-    Usage:
-    a = atom(coords = (1.2,0.4, 0.5), index = 3)
-    print a.extract()
-    
-    Returns a tuple containing the atom's count index and
-    the coordinates tuple.
-    """
-    return (self.index, self.coords)
-  
-  def distance_to(self, other_atom):
-    """
-    Returns the distance between 2 atoms
-    """
-    (x1,y1,z1), (x2,y2,z2) = self.coords, other_atom.coords 
-    return np.sqrt((x1-x2)**2 + (y1-y2)**2 + (z1-z2)**2)
-  
-  

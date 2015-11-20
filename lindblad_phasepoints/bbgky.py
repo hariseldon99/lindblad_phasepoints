@@ -25,29 +25,11 @@ except ImportError:
 #Try to import lorenzo's optimized bbgky module, if available
 import lindblad_bbgky as lbbgky
 
-def lindblad_bbgky_test_native(s, t, param):
-  N = param.latsize
-  stensor = s[0:3*N].reshape(3,N)
-  gtensor = s[3*N:].reshape(3,3,N,N)
-  dsdt = -stensor
-  dgdt = -gtensor
-  return np.concatenate((dsdt.flatten(), dgdt.flatten()))
-
-#def lindblad_bbgky_test_pywrap(s, t, param):
-#    """
-#    Python wrapper to lindblad C bbgky module
-#    """
-#    #s[0:3N]  is the tensor s^l_\mu
-#    #G = s[3*N:].reshape(3,3,N,N) is the tensor g^{ab}_{\mu\nu}.
-#    #Probably not wise to reshape b4 passing to a C routine.
-#    #By default, numpy arrays are contiguous, but reshaping...
-#    dsdt = np.zeros_like(s)
-#    dtkr = np.array([(param.drv_freq * t) + \
-#      param.kvec.dot(atom_mu.coords) for atom_mu in param.local_atoms])
-#    
-#    lb.bbgky(param.workspace, s, param.deltamat.flatten(), \
-#      param.gammamat.flatten(), dtkr, param.drv_amp, param.latsize,dsdt)
-#    return dsdt
+def kdel(i,j):
+  if (i==j):
+    return 1.
+  else:
+    return 0.
 
 def lindblad_bbgky_pywrap(s, t, param):
    """
@@ -57,13 +39,16 @@ def lindblad_bbgky_pywrap(s, t, param):
    #G = s[3*N:].reshape(3,3,N,N) is the tensor g^{ab}_{\mu\nu}.
    #Probably not wise to reshape b4 passing to a C routine.
    #By default, numpy arrays are contiguous, but reshaping...
-   dsdt = np.zeros_like(s)   
+   s = np.require(s, dtype=np.float64, \
+     requirements=['A', 'O', 'W', 'C'])
+   dsdt = np.zeros_like(s)
+   dsdt = np.require(dsdt, dtype=np.float64, \
+     requirements=['A', 'O', 'W', 'C'])
    lbbgky.bbgky(param.workspace, s, param.deltamat.flatten(), \
      param.gammamat.flatten(), (param.kr + param.drv_freq * t),\
        param.drv_amp, param.latsize,dsdt)
    return dsdt
 
- 
 class BBGKY_System:
   """
     Class that creates the BBGKY system.
@@ -138,6 +123,8 @@ class BBGKY_System:
     local_size = mpicomm.scatter(local_size, root = root)
     self.local_atoms = np.empty(local_size, dtype="float64")
     self.local_atoms = mpicomm.scatter(sendbuf, root = root)
+    if self.verbose and self.comm.rank == root:
+      print("\nAtoms scattered to grid\n")
     self.deltamat = np.zeros((N,N))
     self.gammamat = np.eye(N)
     for i in xrange(N):
@@ -152,7 +139,7 @@ class BBGKY_System:
     self.deltamat = self.deltamat + self.deltamat.T
     self.gammamat = self.gammamat + self.gammamat.T
     self.kr = np.array([self.kvec.dot(atom_mu.coords) \
-      for atom_mu in self.local_atoms])
+      for atom_mu in self.atoms])
     
     
   def initconds(self, alpha, lattice_index):
@@ -198,19 +185,20 @@ class BBGKY_System:
     if type(time_info).__module__ == np.__name__ :
       localdata = []
       for mth_atom in self.local_atoms:
-	(m, coord_m) = mth_atom.extract()
+	(m, coord_m) = mth_atom.index, mth_atom.coords
 	data = []
 	for alpha in xrange(nalphas):
 	  a, c = self.initconds(alpha, m)
 	  s_t = odeint(lindblad_bbgky_pywrap, \
 		np.concatenate((a.flatten(),c.flatten())),\
-		  time_info, args=(self,), Dfun=None)
-
+		  time_info, args=(self,), Dfun=None)	    
 	  am_t = s_t[:,0:3*self.latsize][:,m::N]
 	  data.append(am_t)
 	afm_t = np.sum(np.array(data), axis=0)
 	localdata.append(afm_t)
       if self.verbose:
+	  if self.comm.rank == root:
+	    print("\nGathering all data to root now\n")
           fulldata , distribution = gather_to_root(self.comm, \
                   np.array(localdata), root=root)
           if self.comm.rank == root:
@@ -280,13 +268,3 @@ class BBGKY_System:
 	t. A numpy array of field correlations at time wrt field at time[0]
     """
     return self.bbgky(time_info)
- 
-if __name__ == '__main__':
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-    #Initiate the parameters in object
-    p = ParamData(latsize=101)
-    #Initiate the DTWA system with the parameters and niter
-    d = BBGKY_System(p, comm)
-    data = d.evolve((0.0, 1.0, 1000))

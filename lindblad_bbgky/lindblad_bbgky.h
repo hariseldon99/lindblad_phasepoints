@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <string.h>
 #include <cblas.h>
 
 /* Functions */
