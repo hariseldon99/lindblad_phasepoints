@@ -20,13 +20,13 @@
 #PBS -m ea
 #PBS -M daneel@sun.ac.za
 #########################################################################
-
 SCRIPT = "./dtwa_2d_spins.py"
 # Make sure I'm the only one that can read my output
 umask 0077
 # Load the module system
 source /etc/profile.d/modules.sh
 #Load relevant modules. Load them with THESE TWO LINES, NOT FROM ONE LINE
+module purge
 module load dot intel
 module load gcc/4.9.1 Anaconda/2.1.0
 module load lib/atlas/3.10.2
