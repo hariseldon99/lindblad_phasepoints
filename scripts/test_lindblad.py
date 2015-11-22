@@ -7,7 +7,6 @@ import numpy as np
 import csv
 from mpi4py import MPI
 import sys
-sys.path.append("/home/daneel/gitrepos/lindblad_phasepoints/build/lib.linux-x86_64-2.7/") 
 import lindblad_phasepoints as lb
  
 def run_lb():
@@ -16,11 +15,13 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 13
+  lattice_size = 5
   l = lattice_size
-  amp = 1.0
-  det = 0.8
-  rad = 5.0
+  amp = 0.0
+  det = 0.0
+  density = 0.15
+
+  rad = pow(3. * l/(4. * np.pi * density),1./3.)
 
   #Initiate the parameters in object
   p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, \
@@ -30,8 +31,8 @@ def run_lb():
   d = lb.BBGKY_System(p, comm, verbose=True)
   #Prepare the times
   t0 = 0.0
-  ncyc = 2.0
-  nsteps = 50
+  ncyc = 4.0
+  nsteps = 100
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   corrdata, distribution = d.evolve(times)

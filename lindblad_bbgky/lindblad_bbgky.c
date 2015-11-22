@@ -36,7 +36,6 @@ eps (int i, int j, int k)
   return result;
 }
 
-
 double
 kdel (int i, int j)
 {
@@ -153,7 +152,7 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 	    }
 	  rhs_iter += rhs;
 	  rhs_iter -=
-	    0.5 * s[i + latsize * m] * (1.0 + kdel (2, m)) - kdel (2, m);
+	    0.5 * s[i + latsize * m] * (1.0 + kdel (2, m)) + kdel (2, m);
 	  dsdt[i + latsize * m] = rhs_iter;
 	}
     }

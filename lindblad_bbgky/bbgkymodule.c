@@ -2,7 +2,6 @@
 #include <numpy/arrayobject.h>
 #include "lindblad_bbgky.h"
 
-
 static PyObject *
 wrap_bbgky (PyObject * self, PyObject * args)
 {
