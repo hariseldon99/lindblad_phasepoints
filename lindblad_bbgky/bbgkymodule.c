@@ -1,5 +1,3 @@
-#include <Python.h>
-#include <numpy/arrayobject.h>
 #include "lindblad_bbgky.h"
 
 static PyObject *

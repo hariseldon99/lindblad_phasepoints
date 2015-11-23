@@ -54,6 +54,9 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 	double *dtkr, double drv_amp, int latsize, double *dsdt)
 {
 
+  //Debugging symbols
+  //int d_m = 1, d_n = 1, d_i, d_j;
+
   double *cmat, *dcdt_mat;
   int m, n, b, k;		//xyz indices
   int i, j;			//lattice indices
@@ -98,6 +101,7 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		     1.0, deltamat, latsize,
 		     &cmat[(k + 3 * b) * latsize * latsize], latsize, 0.0,
 		     &mf_cmatp[(k + 3 * b) * latsize * latsize], latsize);
+
 	//REMOVE FATTY TERM FROM DIAGONAL PART OF GAMMAMAT, WHICH MUST BE UNITY
 	memcpy (&mf_cmatm[(k + 3 * b) * latsize * latsize],
 		&cmat[(k + 3 * b) * latsize * latsize],
@@ -107,7 +111,6 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		     &cmat[(k + 3 * b) * latsize * latsize], latsize, -1.0,
 		     &mf_cmatm[(k + 3 * b) * latsize * latsize], latsize);
       }
-
 
   //Update the spins in dsdt
   for (i = 0; i < latsize; i++)
@@ -157,6 +160,7 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 	}
     }
 
+
   //Update the correlations in dgdt
   for (m = 0; m < 3; m++)
     for (n = m; n < 3; n++)
@@ -173,6 +177,7 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		-cmat[(n + 3 * m) * latsize * latsize +
 		      (j + latsize * i)] * (1.0 + 0.5 * (kdel (m, 2) +
 							 kdel (n, 2)));
+
 	      //Inside these brackets lie codes for all the other lines       
 	      {
 		//RHS iterates over lines 2 and 3, the drive part 
@@ -192,6 +197,7 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 
 		  }
 		rhs_iter += drv_amp * rhs;
+
 		//RHS iterates over lines 4 and 5
 		rhs = 0.0;
 		for (b = 0; b < 3; b++)
@@ -200,30 +206,32 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 				(j + latsize * i)];
 
 		    rhs +=
-		      (mf_sp[i + latsize * 0] -
-		       0.5 * mf_sm[i + latsize * 1]) * eps (0, b,
-							    m) + (mf_sp[i +
-									latsize
-									* 1] +
-								  0.5 *
-								  mf_sm[i +
-									latsize
-									*
-									0]) *
-		      eps (1, b, m) * prod;
+		      ((mf_sp[i + latsize * 0] -
+			0.5 * mf_sm[i + latsize * 1]) * eps (0, b,
+							     m) + (mf_sp[i +
+									 latsize
+									 *
+									 1] +
+								   0.5 *
+								   mf_sm[i +
+									 latsize
+									 *
+									 0]) *
+		       eps (1, b, m)) * prod;
 		    rhs -=
-		      (s[i + latsize * 0] * deltamat[j + latsize * i] -
-		       0.5 * s[i + latsize * 1] * gammamat[j +
-							   latsize * i]) *
-		      eps (0, b,
-			   m) + (s[i + latsize * 1] * deltamat[j +
-							       latsize * i] +
-				 0.5 * s[i + latsize * 0] * gammamat[j +
-								     latsize *
-								     i]) *
-		      eps (1, b, m) * prod;
+		      ((s[i + latsize * 0] * deltamat[j + latsize * i] -
+			0.5 * s[i + latsize * 1] * gammamat[j +
+							    latsize * i]) *
+		       eps (0, b,
+			    m) + (s[i + latsize * 1] * deltamat[j +
+								latsize * i] +
+				  0.5 * s[i + latsize * 0] * gammamat[j +
+								      latsize
+								      * i]) *
+		       eps (1, b, m)) * prod;
 		  }
 		rhs_iter += rhs;
+		//Verified Correct up to this point          
 		//RHS iterates over lines 6 and 7
 		rhs = 0.0;
 		for (b = 0; b < 3; b++)
@@ -231,216 +239,217 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		    prod = cmat[((b + 3 * m) * latsize * latsize) +
 				(j + latsize * i)];
 		    rhs +=
-		      (mf_sp[j + latsize * 0] -
-		       0.5 * mf_sm[j + latsize * 1]) * eps (0, b,
-							    n) + (mf_sp[j +
-									latsize
-									* 1] +
-								  0.5 *
-								  mf_sm[j +
-									latsize
-									*
-									0]) *
-		      eps (1, b, n) * prod;
-		    rhs -=
-		      (s[j + latsize * 0] * deltamat[j + latsize * i] -
-		       0.5 * s[j + latsize * 1] * gammamat[j +
-							   latsize * i]) *
-		      eps (0, b,
-			   n) + (s[j + latsize * 1] * deltamat[j +
-							       latsize * i] +
-				 0.5 * s[j + latsize * 0] * gammamat[j +
-								     latsize *
-								     i]) *
-		      eps (1, b, n) * prod;
-		  }
-		rhs_iter += rhs;
-		//RHS iterates over lines 8 and 9
-		rhs = 0.0;
-		for (b = 0; b < 3; b++)
-		  {
-		    prod = s[i + latsize * b];
-		    rhs += (mf_cmatp[((n + 3 * 0) * latsize * latsize) +
-				     (j + latsize * i)] -
-			    0.5 * mf_cmatm[((n + 3 * 1) * latsize * latsize) +
-					   (j + latsize * i)]) * eps (0, b,
-								      m) +
-		      (mf_cmatp
-		       [((n + 3 * 1) * latsize * latsize) +
-			(j + latsize * i)] -
-		       0.5 * mf_cmatm[((n + 3 * 0) * latsize * latsize) +
-				      (j + latsize * i)]) * eps (1, b,
-								 m) * prod;
-		    rhs -=
-		      (cmat
-		       [((n + 3 * 0) * latsize * latsize) +
-			(j + latsize * j)] * deltamat[j + latsize * i] -
-		       0.5 * cmat[((n + 3 * 1) * latsize * latsize) +
-				  (j + latsize * j)] * gammamat[j +
-								latsize *
-								i]) * eps (0,
-									   b,
-									   m)
-		      +
-		      (cmat
-		       [((n + 3 * 1) * latsize * latsize) +
-			(j + latsize * j)] * deltamat[j + latsize * i] -
-		       0.5 * cmat[((n + 3 * 0) * latsize * latsize) +
-				  (j + latsize * j)] * gammamat[j +
-								latsize *
-								i]) * eps (1,
-									   b,
-									   m)
-		      * prod;
-		  }
-		rhs_iter += rhs;
-		//RHS iterates over lines 10 and 11
-		rhs = 0.0;
-		for (b = 0; b < 3; b++)
-		  {
-		    prod = s[j + latsize * b];
-
-		    rhs += (mf_cmatp[((0 + 3 * m) * latsize * latsize) +
-				     (j + latsize * i)] -
-			    0.5 * mf_cmatm[((1 + 3 * m) * latsize * latsize) +
-					   (j + latsize * i)]) * eps (0, b,
-								      n) +
-		      (mf_cmatp
-		       [((1 + 3 * m) * latsize * latsize) +
-			(j + latsize * i)] -
-		       0.5 * mf_cmatm[((0 + 3 * m) * latsize * latsize) +
-				      (j + latsize * i)]) * eps (1, b,
-								 n) * prod;
-		    rhs -=
-		      (cmat
-		       [((0 + 3 * m) * latsize * latsize) +
-			(i + latsize * i)] * deltamat[j + latsize * i] -
-		       0.5 * cmat[((1 + 3 * m) * latsize * latsize) +
-				  (i + latsize * i)] * gammamat[j +
-								latsize *
-								i]) * eps (0,
-									   b,
-									   n)
-		      +
-		      (cmat
-		       [((1 + 3 * m) * latsize * latsize) +
-			(i + latsize * i)] * deltamat[j + latsize * i] -
-		       0.5 * cmat[((0 + 3 * m) * latsize * latsize) +
-				  (i + latsize * i)] * gammamat[j +
-								latsize *
-								i]) * eps (1,
-									   b,
-									   n)
-		      * prod;
-		  }
-		rhs_iter += rhs;
-		//RHS iterates over line 12 
-		rhs = 0.0;
-		for (b = 0; b < 3; b++)
-		  {
-		    prod = s[j + latsize * b];
-		    rhs +=
-		      (kdel (m, 0) * deltamat[j + latsize * i] -
-		       0.5 * kdel (m,
-				   1) * gammamat[j + latsize * i]) * eps (0,
-									  b,
-									  n) *
-		      prod;
-		    rhs +=
-		      (kdel (m, 1) * deltamat[j + latsize * i] +
-		       0.5 * kdel (m,
-				   0) * gammamat[j + latsize * i]) * eps (1,
-									  b,
-									  n) *
-		      prod;
-		  }
-		rhs_iter += rhs;
-		//RHS iterates over line 13 
-		rhs = 0.0;
-		for (b = 0; b < 3; b++)
-		  {
-		    prod = s[i + latsize * b];
-		    rhs +=
-		      (kdel (n, 0) * deltamat[j + latsize * i] -
-		       0.5 * kdel (n,
-				   1) * gammamat[j + latsize * i]) * eps (0,
-									  b,
-									  m) *
-		      prod;
-		    rhs +=
-		      (kdel (n, 1) * deltamat[j + latsize * i] +
-		       0.5 * kdel (n,
-				   0) * gammamat[j + latsize * i]) * eps (1,
-									  b,
-									  m) *
-		      prod;
-		  }
-		rhs_iter += rhs;
-		//RHS iterates over line 14
-		rhs = 0.0;
-		for (b = 0; b < 3; b++)
-		  {
-		    prod = s[j + latsize * n];
-		    rhs += (cmat[((0 + 3 * b) * latsize * latsize) +
-				 (j + latsize * i)] + s[i +
-							latsize * b] * s[j +
+		      ((mf_sp[j + latsize * 0] -
+			0.5 * mf_sm[j + latsize * 1]) * eps (0, b,
+							     n) + (mf_sp[j +
+									 latsize
+									 *
+									 1] +
+								   0.5 *
+								   mf_sm[j +
 									 latsize
 									 *
 									 0]) *
-		      (deltamat[j + latsize * i] * eps (0, b, m) +
-		       0.5 * gammamat[j + latsize * i] * eps (1, b,
-							      m)) * prod;
-		    rhs +=
-		      (cmat
-		       [((1 + 3 * b) * latsize * latsize) +
-			(j + latsize * i)] + s[i + latsize * b] * s[j +
-								    latsize *
-								    1]) *
-		      (deltamat[j + latsize * i] * eps (1, b, m) -
-		       0.5 * gammamat[j + latsize * i] * eps (0, b,
-							      m)) * prod;
+		       eps (1, b, n)) * prod;
+		    rhs -=
+		      ((s[j + latsize * 0] * deltamat[j + latsize * i] -
+			0.5 * s[j + latsize * 1] * gammamat[j +
+							    latsize * i]) *
+		       eps (0, b,
+			    n) + (s[j + latsize * 1] * deltamat[j +
+								latsize * i] +
+				  0.5 * s[j + latsize * 0] * gammamat[j +
+								      latsize
+								      * i]) *
+		       eps (1, b, n)) * prod;
 		  }
-		rhs_iter -= rhs;
-		//RHS iterates over line 15
-		rhs = 0.0;
-		for (b = 0; b < 3; b++)
-		  {
-		    prod = s[i + latsize * n];
-		    rhs += (cmat[((b + 3 * 0) * latsize * latsize) +
-				 (j + latsize * i)] + s[i +
-							latsize * 0] * s[j +
-									 latsize
-									 *
-									 b]) *
-		      (deltamat[j + latsize * i] * eps (0, b, n) +
-		       0.5 * gammamat[j + latsize * i] * eps (1, b,
-							      n)) * prod;
-		    rhs +=
-		      (cmat
-		       [((b + 3 * 1) * latsize * latsize) +
-			(j + latsize * i)] + s[i + latsize * 1] * s[j +
-								    latsize *
-								    b]) *
-		      (deltamat[j + latsize * i] * eps (1, b, n) -
-		       0.5 * gammamat[j + latsize * i] * eps (0, b,
-							      n)) * prod;
-		  }
-		rhs_iter -= rhs;
-		//RHS iterates over line 16
-		rhs = 0.0;
-		for (b = 0; b < 3; b++)
-		  for (k = 0; k < 3; k++)
-		    {
-		      rhs += (cmat[((k + 3 * b) * latsize * latsize) +
-				   (j + latsize * i)] + s[i +
-							  latsize * b] * s[j +
-									   latsize
-									   *
-									   k])
-			* (eps (0, b, m) * eps (k, 0, n) +
-			   eps (1, b, m) * eps (k, 1, n));
-		    }
-		rhs_iter -= gammamat[j + latsize * i] * rhs;
+		rhs_iter += rhs;
+//              //RHS iterates over lines 8 and 9
+//              rhs = 0.0;
+//              for (b = 0; b < 3; b++)
+//                {
+//                  prod = s[i + latsize * b];
+//                  rhs += (mf_cmatp[((n + 3 * 0) * latsize * latsize) +
+//                                   (j + latsize * i)] -
+//                          0.5 * mf_cmatm[((n + 3 * 1) * latsize * latsize) +
+//                                         (j + latsize * i)]) * eps (0, b,
+//                                                                    m) +
+//                    (mf_cmatp
+//                     [((n + 3 * 1) * latsize * latsize) +
+//                      (j + latsize * i)] -
+//                     0.5 * mf_cmatm[((n + 3 * 0) * latsize * latsize) +
+//                                    (j + latsize * i)]) * eps (1, b,
+//                                                               m) * prod;
+//                  rhs -=
+//                    (cmat
+//                     [((n + 3 * 0) * latsize * latsize) +
+//                      (j + latsize * j)] * deltamat[j + latsize * i] -
+//                     0.5 * cmat[((n + 3 * 1) * latsize * latsize) +
+//                                (j + latsize * j)] * gammamat[j +
+//                                                              latsize *
+//                                                              i]) * eps (0,
+//                                                                         b,
+//                                                                         m)
+//                    +
+//                    (cmat
+//                     [((n + 3 * 1) * latsize * latsize) +
+//                      (j + latsize * j)] * deltamat[j + latsize * i] -
+//                     0.5 * cmat[((n + 3 * 0) * latsize * latsize) +
+//                                (j + latsize * j)] * gammamat[j +
+//                                                              latsize *
+//                                                              i]) * eps (1,
+//                                                                         b,
+//                                                                         m)
+//                    * prod;
+//                }
+//              rhs_iter += rhs;
+//              //RHS iterates over lines 10 and 11
+//              rhs = 0.0;
+//              for (b = 0; b < 3; b++)
+//                {
+//                  prod = s[j + latsize * b];
+// 
+//                  rhs += (mf_cmatp[((0 + 3 * m) * latsize * latsize) +
+//                                   (j + latsize * i)] -
+//                          0.5 * mf_cmatm[((1 + 3 * m) * latsize * latsize) +
+//                                         (j + latsize * i)]) * eps (0, b,
+//                                                                    n) +
+//                    (mf_cmatp
+//                     [((1 + 3 * m) * latsize * latsize) +
+//                      (j + latsize * i)] -
+//                     0.5 * mf_cmatm[((0 + 3 * m) * latsize * latsize) +
+//                                    (j + latsize * i)]) * eps (1, b,
+//                                                               n) * prod;
+//                  rhs -=
+//                    (cmat
+//                     [((0 + 3 * m) * latsize * latsize) +
+//                      (i + latsize * i)] * deltamat[j + latsize * i] -
+//                     0.5 * cmat[((1 + 3 * m) * latsize * latsize) +
+//                                (i + latsize * i)] * gammamat[j +
+//                                                              latsize *
+//                                                              i]) * eps (0,
+//                                                                         b,
+//                                                                         n)
+//                    +
+//                    (cmat
+//                     [((1 + 3 * m) * latsize * latsize) +
+//                      (i + latsize * i)] * deltamat[j + latsize * i] -
+//                     0.5 * cmat[((0 + 3 * m) * latsize * latsize) +
+//                                (i + latsize * i)] * gammamat[j +
+//                                                              latsize *
+//                                                              i]) * eps (1,
+//                                                                         b,
+//                                                                         n)
+//                    * prod;
+//                }
+//              rhs_iter += rhs;
+//              //RHS iterates over line 12 
+//              rhs = 0.0;
+//              for (b = 0; b < 3; b++)
+//                {
+//                  prod = s[j + latsize * b];
+//                  rhs +=
+//                    (kdel (m, 0) * deltamat[j + latsize * i] -
+//                     0.5 * kdel (m,
+//                                 1) * gammamat[j + latsize * i]) * eps (0,
+//                                                                        b,
+//                                                                        n) *
+//                    prod;
+//                  rhs +=
+//                    (kdel (m, 1) * deltamat[j + latsize * i] +
+//                     0.5 * kdel (m,
+//                                 0) * gammamat[j + latsize * i]) * eps (1,
+//                                                                        b,
+//                                                                        n) *
+//                    prod;
+//                }
+//              rhs_iter += rhs;
+//              //RHS iterates over line 13 
+//              rhs = 0.0;
+//              for (b = 0; b < 3; b++)
+//                {
+//                  prod = s[i + latsize * b];
+//                  rhs +=
+//                    (kdel (n, 0) * deltamat[j + latsize * i] -
+//                     0.5 * kdel (n,
+//                                 1) * gammamat[j + latsize * i]) * eps (0,
+//                                                                        b,
+//                                                                        m) *
+//                    prod;
+//                  rhs +=
+//                    (kdel (n, 1) * deltamat[j + latsize * i] +
+//                     0.5 * kdel (n,
+//                                 0) * gammamat[j + latsize * i]) * eps (1,
+//                                                                        b,
+//                                                                        m) *
+//                    prod;
+//                }
+//              rhs_iter += rhs;
+//              //RHS iterates over line 14
+//              rhs = 0.0;
+//              for (b = 0; b < 3; b++)
+//                {
+//                  prod = s[j + latsize * n];
+//                  rhs += (cmat[((0 + 3 * b) * latsize * latsize) +
+//                               (j + latsize * i)] + s[i +
+//                                                      latsize * b] * s[j +
+//                                                                       latsize
+//                                                                       *
+//                                                                       0]) *
+//                    (deltamat[j + latsize * i] * eps (0, b, m) +
+//                     0.5 * gammamat[j + latsize * i] * eps (1, b,
+//                                                            m)) * prod;
+//                  rhs +=
+//                    (cmat
+//                     [((1 + 3 * b) * latsize * latsize) +
+//                      (j + latsize * i)] + s[i + latsize * b] * s[j +
+//                                                                  latsize *
+//                                                                  1]) *
+//                    (deltamat[j + latsize * i] * eps (1, b, m) -
+//                     0.5 * gammamat[j + latsize * i] * eps (0, b,
+//                                                            m)) * prod;
+//                }
+//              rhs_iter -= rhs;
+//              //RHS iterates over line 15
+//              rhs = 0.0;
+//              for (b = 0; b < 3; b++)
+//                {
+//                  prod = s[i + latsize * n];
+//                  rhs += (cmat[((b + 3 * 0) * latsize * latsize) +
+//                               (j + latsize * i)] + s[i +
+//                                                      latsize * 0] * s[j +
+//                                                                       latsize
+//                                                                       *
+//                                                                       b]) *
+//                    (deltamat[j + latsize * i] * eps (0, b, n) +
+//                     0.5 * gammamat[j + latsize * i] * eps (1, b,
+//                                                            n)) * prod;
+//                  rhs +=
+//                    (cmat
+//                     [((b + 3 * 1) * latsize * latsize) +
+//                      (j + latsize * i)] + s[i + latsize * 1] * s[j +
+//                                                                  latsize *
+//                                                                  b]) *
+//                    (deltamat[j + latsize * i] * eps (1, b, n) -
+//                     0.5 * gammamat[j + latsize * i] * eps (0, b,
+//                                                            n)) * prod;
+//                }
+//              rhs_iter -= rhs;
+//              //RHS iterates over line 16
+//              rhs = 0.0;
+//              for (b = 0; b < 3; b++)
+//                for (k = 0; k < 3; k++)
+//                  {
+//                    rhs += (cmat[((k + 3 * b) * latsize * latsize) +
+//                                 (j + latsize * i)] + s[i +
+//                                                        latsize * b] * s[j +
+//                                                                         latsize
+//                                                                         *
+//                                                                         k])
+//                      * (eps (0, b, m) * eps (k, 0, n) +
+//                         eps (1, b, m) * eps (k, 1, n));
+//                  }
+//              rhs_iter -= gammamat[j + latsize * i] * rhs;
 	      }
 
 	      dcdt_mat[((n + 3 * m) * latsize * latsize) +
@@ -449,6 +458,14 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		       (i + latsize * j)] = rhs_iter;
 	    }
 	}
+
+//Debugging only.
+//    for(d_i=0;d_i<latsize;d_i++){
+//       PySys_WriteStdout("\n");
+//      for(d_j=0;d_j<latsize;d_j++)
+//        PySys_WriteStdout(" %lf",  dcdt_mat[((d_n + 3 * d_m) * latsize * latsize) +
+//                     (d_j + latsize * d_i)]);
+//    }
 
   //Set the diagonals of dcdt to 0
   for (m = 0; m < 3; m++)

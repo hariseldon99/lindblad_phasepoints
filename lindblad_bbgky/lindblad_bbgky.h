@@ -1,3 +1,5 @@
+#include <Python.h>
+#include <numpy/arrayobject.h>
 #include <math.h>
 #include <stdlib.h>
 #include <limits.h>
