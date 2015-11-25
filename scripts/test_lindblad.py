@@ -15,10 +15,10 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 5
+  lattice_size = 10
   l = lattice_size
-  amp = 0.0
-  det = 0.0
+  amp = 1.0
+  det = 1.0
   density = 0.15
 
   rad = pow(3. * l/(4. * np.pi * density),1./3.)
@@ -31,7 +31,7 @@ def run_lb():
   d = lb.BBGKY_System(p, comm, verbose=True)
   #Prepare the times
   t0 = 0.0
-  ncyc = 4.0
+  ncyc = 1.3
   nsteps = 100
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
@@ -43,14 +43,14 @@ def run_lb():
     spectrum = np.fft.fft(corrdata)
     #Prepare the output files. One for each observable
     fname = "corr_time_" + "amp_" + str(amp) + "_det" + str(det) 
-    fname += "_cldrad" + str(rad) 
-    fname += "N_" + str(l) + ".txt"
+    fname += "_cldrad_" + str(rad) 
+    fname += "_N_" + str(l) + ".txt"
 
     #Dump each observable to a separate file
     np.savetxt(fname, np.vstack((np.abs(times), np.abs(corrdata))).T, delimiter=' ')
     fname = "spectrum_omega_" + "amp_" + str(amp) + "_det" + str(det) 
-    fname += "_cldrad" + str(rad)  
-    fname += "N_" + str(l) + ".txt"
+    fname += "_cldrad_" + str(rad)  
+    fname += "_N_" + str(l) + ".txt"
     np.savetxt(fname, np.vstack((np.abs(freqs), np.abs(spectrum))).T, delimiter=' ')
 
 if __name__ == '__main__':

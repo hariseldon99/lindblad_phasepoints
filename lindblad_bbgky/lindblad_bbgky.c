@@ -364,7 +364,6 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		      prod;
 		  }
 		rhs_iter += rhs;
-		//Verified Correct up to this point (incl line 13 below)   
 		//RHS iterates over line 13 
 		rhs = 0.0;
 		for (b = 0; b < 3; b++)
@@ -391,51 +390,51 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		rhs = 0.0;
 		for (b = 0; b < 3; b++)
 		  {
-		    rhs += (cmat[((0 + 3 * b) * latsize * latsize) +
-				 (j + latsize * i)] + s[i +
-							latsize * b] * s[j +
-									 latsize
-									 *
-									 0]) *
-		      (deltamat[j + latsize * i] * eps (0, b, m) +
-		       0.5 * gammamat[j + latsize * i] * eps (1, b,
-							      m));
 		    rhs +=
-		      (cmat
-		       [((1 + 3 * b) * latsize * latsize) +
-			(j + latsize * i)] + s[i + latsize * b] * s[j +
-								    latsize *
-								    1]) *
-		      (deltamat[j + latsize * i] * eps (1, b, m) -
-		       0.5 * gammamat[j + latsize * i] * eps (0, b,
-							      m)) ;
+		      s[j +
+			latsize * n] *
+		      ((cmat
+			[(0 + 3 * b) * latsize * latsize +
+			 (j + latsize * i)] + s[i + latsize * b] * s[j +
+								     latsize *
+								     0]) *
+		       (deltamat[j + latsize * i] * eps (0, b, m) +
+			0.5 * gammamat[j + latsize * i] * eps (1, b,
+							       m)) +
+		       (cmat
+			[(1 + 3 * b) * latsize * latsize +
+			 (j + latsize * i)] + s[i + latsize * b] * s[j +
+								     latsize *
+								     1]) *
+		       (deltamat[j + latsize * i] * eps (1, b, m) -
+			0.5 * gammamat[j + latsize * i] * eps (0, b, m)));
 		  }
-		rhs_iter -= s[j + latsize * n] * rhs;
+		rhs_iter -= rhs;
 		//Possible bug here!
 		//RHS iterates over line 15
 		rhs = 0.0;
 		for (b = 0; b < 3; b++)
 		  {
-		    rhs += (cmat[((b + 3 * 0) * latsize * latsize) +
-				 (j + latsize * i)] + s[i +
-							latsize * 0] * s[j +
-									 latsize
-									 *
-									 b]) *
-		      (deltamat[j + latsize * i] * eps (0, b, n) +
-		       0.5 * gammamat[j + latsize * i] * eps (1, b,
-							      n));
 		    rhs +=
-		      (cmat
-		       [((b + 3 * 1) * latsize * latsize) +
-			(j + latsize * i)] + s[i + latsize * 1] * s[j +
-								    latsize *
-								    b]) *
-		      (deltamat[j + latsize * i] * eps (1, b, n) -
-		       0.5 * gammamat[j + latsize * i] * eps (0, b,
-							      n));
+		      s[i +
+			latsize * m] *
+		      ((cmat
+			[(b + 3 * 0) * latsize * latsize +
+			 (j + latsize * i)] + s[i + latsize * 0] * s[j +
+								     latsize *
+								     b]) *
+		       (deltamat[j + latsize * i] * eps (0, b, n) +
+			0.5 * gammamat[j + latsize * i] * eps (1, b,
+							       n)) +
+		       (cmat
+			[(b + 3 * 1) * latsize * latsize +
+			 (j + latsize * i)] + s[i + latsize * 1] * s[j +
+								     latsize *
+								     b]) *
+		       (deltamat[j + latsize * i] * eps (1, b, n) -
+			0.5 * gammamat[j + latsize * i] * eps (0, b, n)));
 		  }
-		rhs_iter -= s[i + latsize * n] * rhs;
+		rhs_iter -= rhs;
 		//Verified correct from here on out again.
 		//RHS iterates over line 16
 		rhs = 0.0;
@@ -461,28 +460,14 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 	    }
 	}
 
+  //This writes to the python stdout. Use for debugging
+  //PySys_WriteStdout(" %lf", -rhs);   
 
   //Set the diagonals of dcdt to 0
   for (m = 0; m < 3; m++)
     for (n = 0; n < 3; n++)
       for (i = 0; i < latsize; i++)
 	dcdt_mat[((n + 3 * m) * latsize * latsize) + (i + latsize * i)] = 0.0;
-      
-   //Debugging symbols
-  m=0;
-  n=1;
-  i=0;
-  j=1;
-  PySys_WriteStdout("\n");
-  rhs = 0.0;
-  for(b=0;b<3;b++){
-  rhs += s[j+latsize*n]*(((cmat[(0+3*b) * latsize * latsize + (j + latsize * i)] + s[i+ latsize * b] * s[j + latsize * 0]) * (deltamat[j+latsize*i]*eps(0,b,m)+0.5*gammamat[j+latsize*i]*eps(1,b,m)))
-  +
-  ((cmat[(1+3*b) * latsize * latsize + (j + latsize * i)] + s[i+ latsize * b] * s[j + latsize * 1]) * (deltamat[j+latsize*i]*eps(1,b,m)-0.5*gammamat[j+latsize*i]*eps(0,b,m))));
-  }
-  PySys_WriteStdout(" %lf", -rhs);   
-  PySys_WriteStdout("\n");        
-
 
   return 0;
 }

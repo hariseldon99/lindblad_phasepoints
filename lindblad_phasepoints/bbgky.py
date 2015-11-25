@@ -157,7 +157,7 @@ class BBGKY_System:
     times t_output wrt correlations at
     t_output[0]
     """
-    
+    norm = (N * 8.0 * pow(2,N-1))
     N = self.latsize
     phases = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
       for atom in self.atoms])
@@ -171,7 +171,7 @@ class BBGKY_System:
       c = np.sum(fftconvolve(ek0_dagger, ekt))
       #Normalize over alphasums of initial correlations 
       #and append
-      corrs.append(c/(8.0*pow(2,N-1)))
+      corrs.append(c/norm)
     return np.array(corrs)
     
   def bbgky(self, time_info):
