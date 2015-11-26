@@ -15,7 +15,7 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 10
+  lattice_size = 5
   l = lattice_size
   amp = 1.0
   det = 1.0
@@ -31,8 +31,8 @@ def run_lb():
   d = lb.BBGKY_System(p, comm, verbose=True)
   #Prepare the times
   t0 = 0.0
-  ncyc = 1.3
-  nsteps = 100
+  ncyc = 0.5
+  nsteps = 4
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   corrdata, distribution = d.evolve(times)

@@ -153,24 +153,27 @@ class BBGKY_System:
 
   def field_correlations(self, t_output, sdata):
     """
+    DEBUG: DO THIS FOR EACH ALPHA, THEN SUM OVER ALPHAS
+    NOTE THAT THE SHAPE OF SDATA IS (NATOMS, NALPHAS,NTIMES,3)
     Compute the field correlations in
     times t_output wrt correlations at
     t_output[0]
     """
-    norm = (N * 8.0 * pow(2,N-1))
     N = self.latsize
+    norm = 8.0 * N
     phases = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
       for atom in self.atoms])
     phases_conj = np.conjugate(phases)
-    ek0_dagger = np.multiply(phases, sdata[:,0,0]) +  \
-      (1j) * np.multiply(phases, sdata[:,0,1])
-    corrs = []
+    corrs = []#redo with matrix for multiple alphas
+    #This is for each alpha
+    alpha = 0
+    ek0_dagger = np.multiply(phases, sdata[:,alpha,0,0]) +  \
+      (1j) * np.multiply(phases, sdata[:,alpha,0,1])
     for ti, t in np.ndenumerate(t_output):
-      ekt = np.multiply(phases_conj, sdata[:,ti[0],0]) -  \
-      (1j) * np.multiply(phases_conj, sdata[:,ti[0],1])
+      ekt = np.multiply(phases_conj, sdata[:,alpha,ti[0],0]) -  \
+      (1j) * np.multiply(phases_conj, sdata[:,alpha,ti[0],1])
       c = np.sum(fftconvolve(ek0_dagger, ekt))
-      #Normalize over alphasums of initial correlations 
-      #and append
+      #Normalize
       corrs.append(c/norm)
     return np.array(corrs)
     
@@ -183,19 +186,20 @@ class BBGKY_System:
     N = self.latsize
     result = None
     if type(time_info).__module__ == np.__name__ :
-      localdata = []
+      #An empty grid of size N X nalphas
+      #Each element of this list is a dataset
+      localdata = [[None for e in range(nalphas)] \
+	for f in range(self.local_atoms.size)]
       for mth_atom in self.local_atoms:
 	(m, coord_m) = mth_atom.index, mth_atom.coords
-	data = []
 	for alpha in xrange(nalphas):
 	  a, c = self.initconds(alpha, m)
 	  s_t = odeint(lindblad_bbgky_pywrap, \
 		np.concatenate((a.flatten(),c.flatten())),\
 		  time_info, args=(self,), Dfun=None)	    
-	  am_t = s_t[:,0:3*self.latsize][:,m::N]
-	  data.append(am_t)
-	afm_t = np.sum(np.array(data), axis=0)
-	localdata.append(afm_t)
+	  am_t = s_t[:,0:3*N][:,m::N]
+	  localdata[m][alpha] = am_t
+  
       if self.verbose:
 	  if self.comm.rank == root:
 	    print("\nGathering all data to root now\n")
@@ -212,24 +216,8 @@ class BBGKY_System:
               ylocs = np.array([atom.coords[1] for atom in self.atoms])
               zlocs = np.array([atom.coords[2] for atom in self.atoms])
             
-              atoms_table =\
-                      [["xmax", np.amax(xlocs)],\
-                      ["ymax", np.amax(ylocs)],\
-                      ["zmax", np.amax(zlocs)],\
-                      ["xmin", np.amin(xlocs)],\
-                      ["ymin", np.amin(ylocs)],\
-                      ["zmin", np.amin(zlocs)],\
-                      ["xmean", np.mean(xlocs)],\
-                      ["ymean", np.mean(ylocs)],\
-                      ["zmean", np.mean(zlocs)],\
-                      ["x_sd", np.std(xlocs)], \
-                      ["y_sd", np.std(ylocs)], \
-                      ["z_sd", np.std(zlocs)]]
-
-              print (tabulate(atoms_table, tablefmt="fancy_grid", \
-                      floatfmt=".2f")) 
       else:
-          fulldata = gather_to_root(self.comm, \
+          fulldata, distribution = gather_to_root(self.comm, \
                   np.array(localdata), root=root)
           distribution = None
       if self.comm.rank == root:

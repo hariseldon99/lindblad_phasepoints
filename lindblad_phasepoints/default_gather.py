@@ -14,7 +14,7 @@ def gather_to_root(mpcomm, data, root=0):
   in the MPI Communicator
   """
   datasize_loc = data.flatten().size
-  (locatoms, times, xyz) =  data.shape
+  (locatoms, nalphas, times, xyz) =  data.shape
   natoms = mpcomm.reduce(locatoms, op=MPI.SUM, root=root)
   
   if mpcomm.rank == root:  
@@ -45,6 +45,6 @@ def gather_to_root(mpcomm, data, root=0):
   mpcomm.Gatherv(data,[recvbuffer,allsizes,alldisps, MPI.DOUBLE])
   
   if mpcomm.rank == root:
-    recvbuffer = recvbuffer.reshape(natoms, times, xyz)
+    recvbuffer = recvbuffer.reshape(natoms, nalphas, times, xyz)
 
   return recvbuffer, np.array(distrib_atoms)
