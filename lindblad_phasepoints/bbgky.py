@@ -151,31 +151,35 @@ class BBGKY_System:
     c = np.zeros((3,3,self.latsize, self.latsize))
     return a, c
 
+  def bare_correlations(self,init,array):
+      return np.sum(fftconvolve(init,array))
+
   def field_correlations(self, t_output, sdata):
     """
-    DEBUG: DO THIS FOR EACH ALPHA, THEN SUM OVER ALPHAS
-    NOTE THAT THE SHAPE OF SDATA IS (NATOMS, NALPHAS,NTIMES,3)
     Compute the field correlations in
     times t_output wrt correlations at
     t_output[0]
+    NOTE THAT THE SHAPE OF INPUT SDATA IS:
+    (NATOMS, NALPHAS,NTIMES,3)
     """
     N = self.latsize
     norm = 8.0 * N
     phases = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
       for atom in self.atoms])
     phases_conj = np.conjugate(phases)
-    corrs = []#redo with matrix for multiple alphas
-    #This is for each alpha
-    alpha = 0
-    ek0_dagger = np.multiply(phases, sdata[:,alpha,0,0]) +  \
-      (1j) * np.multiply(phases, sdata[:,alpha,0,1])
-    for ti, t in np.ndenumerate(t_output):
-      ekt = np.multiply(phases_conj, sdata[:,alpha,ti[0],0]) -  \
-      (1j) * np.multiply(phases_conj, sdata[:,alpha,ti[0],1])
-      c = np.sum(fftconvolve(ek0_dagger, ekt))
-      #Normalize
-      corrs.append(c/norm)
-    return np.array(corrs)
+    corrs = np.zeros((nalphas,t_output.size), dtype=np.complex_)
+    
+    for alpha in xrange(nalphas):
+        ek0_dagger = np.multiply(phases, sdata[:,alpha,0,0]) +  \
+                (1j) * np.multiply(phases, sdata[:,alpha,0,1])
+        for ti, t in np.ndenumerate(t_output):
+            ekt = np.multiply(phases_conj, sdata[:,alpha,ti[0],0]) -\
+                    (1j) * np.multiply(phases_conj, sdata[:,alpha,ti[0],1])
+            corrs[alpha, ti[0]] = np.sum(fftconvolve(ek0_dagger, ekt))
+    
+    #Sum over alphas and normalize
+    return np.sum(corrs,0)/norm
+      
     
   def bbgky(self, time_info):
     """
@@ -190,15 +194,15 @@ class BBGKY_System:
       #Each element of this list is a dataset
       localdata = [[None for e in range(nalphas)] \
 	for f in range(self.local_atoms.size)]
-      for mth_atom in self.local_atoms:
+      for count, mth_atom in np.ndenumerate(self.local_atoms):
 	(m, coord_m) = mth_atom.index, mth_atom.coords
-	for alpha in xrange(nalphas):
+        for alpha in xrange(nalphas):
 	  a, c = self.initconds(alpha, m)
 	  s_t = odeint(lindblad_bbgky_pywrap, \
 		np.concatenate((a.flatten(),c.flatten())),\
 		  time_info, args=(self,), Dfun=None)	    
 	  am_t = s_t[:,0:3*N][:,m::N]
-	  localdata[m][alpha] = am_t
+          localdata[count[0]][alpha] = am_t
   
       if self.verbose:
 	  if self.comm.rank == root:

@@ -31,8 +31,8 @@ def run_lb():
   d = lb.BBGKY_System(p, comm, verbose=True)
   #Prepare the times
   t0 = 0.0
-  ncyc = 0.5
-  nsteps = 4
+  ncyc = 1.5
+  nsteps = 100
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   corrdata, distribution = d.evolve(times)
@@ -47,7 +47,7 @@ def run_lb():
     fname += "_N_" + str(l) + ".txt"
 
     #Dump each observable to a separate file
-    np.savetxt(fname, np.vstack((np.abs(times), np.abs(corrdata))).T, delimiter=' ')
+    np.savetxt(fname, np.vstack((np.abs(times), corrdata.real)).T, delimiter=' ')
     fname = "spectrum_omega_" + "amp_" + str(amp) + "_det" + str(det) 
     fname += "_cldrad_" + str(rad)  
     fname += "_N_" + str(l) + ".txt"
