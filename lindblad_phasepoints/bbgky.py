@@ -151,9 +151,6 @@ class BBGKY_System:
     c = np.zeros((3,3,self.latsize, self.latsize))
     return a, c
 
-  def bare_correlations(self,init,array):
-      return np.sum(fftconvolve(init,array))
-
   def field_correlations(self, t_output, sdata):
     """
     Compute the field correlations in
@@ -163,12 +160,16 @@ class BBGKY_System:
     (NATOMS, NALPHAS,NTIMES,3)
     """
     N = self.latsize
-    norm = 8.0 * N
+    norm = 16.0 * N * N
     phases = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
       for atom in self.atoms])
     phases_conj = np.conjugate(phases)
     corrs = np.zeros((nalphas,t_output.size), dtype=np.complex_)
-    
+    initcorrs = np.zeros((nalphas, N))
+    for alpha in xrange(nalphas):
+      initspins = sdata[:,alpha,0,0] +  (1j) * sdata[:,alpha,0,1]
+      initcorrs[alpha] = np.sum(fftconvolve(np.conjugate(initspins), initspins))
+    print(initcorrs)  
     for alpha in xrange(nalphas):
         ek0_dagger = np.multiply(phases, sdata[:,alpha,0,0]) +  \
                 (1j) * np.multiply(phases, sdata[:,alpha,0,1])
@@ -209,16 +210,15 @@ class BBGKY_System:
 	    print("\nGathering all data to root now\n")
           fulldata , distribution = gather_to_root(self.comm, \
                   np.array(localdata), root=root)
-          if self.comm.rank == root:
-              print ("\nDistribution of atoms in grid\n")
-              distro_table = tabulate(zip(np.arange(distribution.size),\
-                      distribution), headers=["CPU rank","Local no. of atoms"],\
-                        tablefmt="grid")
-              print(distro_table)
-              print ("\nStatistics of atoms in the volume\n")
-              xlocs = np.array([atom.coords[0] for atom in self.atoms])
-              ylocs = np.array([atom.coords[1] for atom in self.atoms])
-              zlocs = np.array([atom.coords[2] for atom in self.atoms])
+	  print ("\nDistribution of atoms in grid\n")
+          distro_table = tabulate(zip(np.arange(distribution.size),\
+                distribution), headers=["CPU rank","Local no. of atoms"],\
+                  tablefmt="grid")
+	  print(distro_table)
+          print ("\nStatistics of atoms in the volume\n")
+          xlocs = np.array([atom.coords[0] for atom in self.atoms])
+          ylocs = np.array([atom.coords[1] for atom in self.atoms])
+          zlocs = np.array([atom.coords[2] for atom in self.atoms])
             
       else:
           fulldata, distribution = gather_to_root(self.comm, \

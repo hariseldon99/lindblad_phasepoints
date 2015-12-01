@@ -13,7 +13,7 @@ def gather_to_root(mpcomm, data, root=0):
   Facilitates MPI Gather of all spin data for the atoms distributed 
   in the MPI Communicator
   """
-  datasize_loc = data.flatten().size
+  datasize_loc = data.size
   (locatoms, nalphas, times, xyz) =  data.shape
   natoms = mpcomm.reduce(locatoms, op=MPI.SUM, root=root)
   
@@ -47,4 +47,4 @@ def gather_to_root(mpcomm, data, root=0):
   if mpcomm.rank == root:
     recvbuffer = recvbuffer.reshape(natoms, nalphas, times, xyz)
 
-  return recvbuffer, np.array(distrib_atoms)
+  return np.array(recvbuffer), np.array(distrib_atoms)

@@ -15,7 +15,7 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 5
+  lattice_size = 10
   l = lattice_size
   amp = 1.0
   det = 1.0
@@ -29,10 +29,11 @@ def run_lb():
 
   #Initiate the DTWA system with the parameters 
   d = lb.BBGKY_System(p, comm, verbose=True)
+  
   #Prepare the times
   t0 = 0.0
   ncyc = 1.5
-  nsteps = 100
+  nsteps = 2
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   corrdata, distribution = d.evolve(times)
