@@ -42,6 +42,7 @@ def run_lb():
   if rank == 0:
     freqs = np.fft.fftfreq(corrdata.size, d=timestep)
     spectrum = np.fft.fft(corrdata)
+    s = np.array_split(spectrum,2)[0]
     #Prepare the output files. One for each observable
     fname = "corr_time_" + "amp_" + str(amp) + "_det" + str(det) 
     fname += "_cldrad_" + str(rad) 
@@ -52,7 +53,7 @@ def run_lb():
     fname = "spectrum_omega_" + "amp_" + str(amp) + "_det" + str(det) 
     fname += "_cldrad_" + str(rad)  
     fname += "_N_" + str(l) + ".txt"
-    np.savetxt(fname, np.vstack((np.abs(freqs), np.abs(spectrum))).T, delimiter=' ')
+    np.savetxt(fname, np.vstack((np.abs(freqs), np.abs(s))).T, delimiter=' ')
 
 if __name__ == '__main__':
   run_lb()
