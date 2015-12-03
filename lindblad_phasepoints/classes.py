@@ -44,7 +44,7 @@ class ParamData:
       self.cloud_rad = cloud_rad
       #Set the momentum to be unit magnitude in z direction
       self.kvec = np.array([0.0, 0.0, 1.0]) 
-	  
+
 class Atom:
   """
   Class that stores all the data specifying a single atom 

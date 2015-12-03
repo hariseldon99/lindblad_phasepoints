@@ -7,7 +7,6 @@ import copy
 import numpy as np
 from scipy.integrate import odeint
 from pprint import pprint
-from tabulate import tabulate
 from scipy.signal import fftconvolve
 from numpy.linalg import norm
 
@@ -30,7 +29,7 @@ def kdel(i,j):
     return 1.
   else:
     return 0.
-
+  
 def lindblad_bbgky_pywrap(s, t, param):
    """
    Python wrapper to lindblad C bbgky module
@@ -150,7 +149,7 @@ class BBGKY_System:
     a[:,m] = rvecs[alpha]
     c = np.zeros((3,3,self.latsize, self.latsize))
     return a, c
-
+  
   def field_correlations(self, t_output, sdata):
     """
     Compute the field correlations in
@@ -160,26 +159,23 @@ class BBGKY_System:
     (NATOMS, NALPHAS,NTIMES,3)
     """
     N = self.latsize
-    norm = 16.0 * N * N
+    nrm = 16.0 * N * N 
     phases = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
       for atom in self.atoms])
     phases_conj = np.conjugate(phases)
     corrs = np.zeros((nalphas,t_output.size), dtype=np.complex_)
-    initcorrs = np.zeros((nalphas, N))
-    for alpha in xrange(nalphas):
-      initspins = sdata[:,alpha,0,0] +  (1j) * sdata[:,alpha,0,1]
-      initcorrs[alpha] = np.sum(fftconvolve(np.conjugate(initspins), initspins))
-    print(initcorrs)  
     for alpha in xrange(nalphas):
         ek0_dagger = np.multiply(phases, sdata[:,alpha,0,0]) +  \
                 (1j) * np.multiply(phases, sdata[:,alpha,0,1])
+   
         for ti, t in np.ndenumerate(t_output):
-            ekt = np.multiply(phases_conj, sdata[:,alpha,ti[0],0]) -\
-                    (1j) * np.multiply(phases_conj, sdata[:,alpha,ti[0],1])
-            corrs[alpha, ti[0]] = np.sum(fftconvolve(ek0_dagger, ekt))
+	    (tind,) = ti
+            ekt = np.multiply(phases_conj, sdata[:,alpha,tind,0]) -\
+                    (1j) * np.multiply(phases_conj, sdata[:,alpha,tind,1])
+            corrs[alpha, tind] = np.sum(fftconvolve(ek0_dagger, ekt))
     
     #Sum over alphas and normalize
-    return np.sum(corrs,0)/norm
+    return np.sum(corrs,0)/nrm
       
     
   def bbgky(self, time_info):
@@ -210,16 +206,6 @@ class BBGKY_System:
 	    print("\nGathering all data to root now\n")
           fulldata , distribution = gather_to_root(self.comm, \
                   np.array(localdata), root=root)
-	  print ("\nDistribution of atoms in grid\n")
-          distro_table = tabulate(zip(np.arange(distribution.size),\
-                distribution), headers=["CPU rank","Local no. of atoms"],\
-                  tablefmt="grid")
-	  print(distro_table)
-          print ("\nStatistics of atoms in the volume\n")
-          xlocs = np.array([atom.coords[0] for atom in self.atoms])
-          ylocs = np.array([atom.coords[1] for atom in self.atoms])
-          zlocs = np.array([atom.coords[2] for atom in self.atoms])
-            
       else:
           fulldata, distribution = gather_to_root(self.comm, \
                   np.array(localdata), root=root)

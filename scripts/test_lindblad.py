@@ -15,7 +15,7 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 10
+  lattice_size = 5
   l = lattice_size
   amp = 1.0
   det = 1.0
@@ -33,7 +33,7 @@ def run_lb():
   #Prepare the times
   t0 = 0.0
   ncyc = 1.5
-  nsteps = 2
+  nsteps = 200
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   corrdata, distribution = d.evolve(times)
@@ -43,17 +43,18 @@ def run_lb():
     freqs = np.fft.fftfreq(corrdata.size, d=timestep)
     spectrum = np.fft.fft(corrdata)
     s = np.array_split(spectrum,2)[0]
+    f = np.array_split(freqs,2)[0]
     #Prepare the output files. One for each observable
     fname = "corr_time_" + "amp_" + str(amp) + "_det" + str(det) 
     fname += "_cldrad_" + str(rad) 
     fname += "_N_" + str(l) + ".txt"
-
     #Dump each observable to a separate file
-    np.savetxt(fname, np.vstack((np.abs(times), corrdata.real)).T, delimiter=' ')
+    np.savetxt(fname, np.vstack((np.abs(times), corrdata.real, corrdata.imag)).T, delimiter=' ')
+
     fname = "spectrum_omega_" + "amp_" + str(amp) + "_det" + str(det) 
     fname += "_cldrad_" + str(rad)  
     fname += "_N_" + str(l) + ".txt"
-    np.savetxt(fname, np.vstack((np.abs(freqs), np.abs(s))).T, delimiter=' ')
+    np.savetxt(fname, np.vstack((np.abs(f), np.abs(s))).T, delimiter=' ')
 
 if __name__ == '__main__':
   run_lb()
