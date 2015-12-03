@@ -12,7 +12,6 @@ from numpy.linalg import norm
 
 from consts import *
 from classes import *
-from default_gather import *
 
 #Try to import mkl if it is available
 try:
@@ -122,8 +121,6 @@ class BBGKY_System:
     local_size = mpicomm.scatter(local_size, root = root)
     self.local_atoms = np.empty(local_size, dtype="float64")
     self.local_atoms = mpicomm.scatter(sendbuf, root = root)
-    if self.verbose and self.comm.rank == root:
-      print("\nAtoms scattered to grid\n")
     self.deltamat = np.zeros((N,N))
     self.gammamat = np.eye(N)
     for i in xrange(N):
@@ -140,8 +137,6 @@ class BBGKY_System:
     self.kr = np.array([self.kvec.dot(atom_mu.coords) \
       for atom_mu in self.atoms])
     
-    
-    
   def initconds(self, alpha, lattice_index):
     N = self.latsize
     m = lattice_index
@@ -156,27 +151,22 @@ class BBGKY_System:
     Compute the field correlations in
     times t_output wrt correlations at
     t_output[0]
-    NOTE THAT THE SHAPE OF INPUT SDATA IS:
-    (NATOMS, NALPHAS,NTIMES,3)
     """
-    N = self.latsize
-    nrm = 16.0 * N * N 
+    #spins_x = sdata[:,0:N]
+    #spins_y = sdata[:,N:2*N]
+    N = self.latsize 
     phases = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
       for atom in self.atoms])
     phases_conj = np.conjugate(phases)
-    corrs = np.zeros((nalphas,t_output.size), dtype=np.complex_)
-    for alpha in xrange(nalphas):
-        ek0_dagger = np.multiply(phases, sdata[:,alpha,0,0]) +  \
-                (1j) * np.multiply(phases, sdata[:,alpha,0,1])
-   
-        for ti, t in np.ndenumerate(t_output):
-	    (tind,) = ti
-            ekt = np.multiply(phases_conj, sdata[:,alpha,tind,0]) -\
-                    (1j) * np.multiply(phases_conj, sdata[:,alpha,tind,1])
-            corrs[alpha, tind] = np.sum(fftconvolve(ek0_dagger, ekt))
-    
-    #Sum over alphas and normalize
-    return np.sum(corrs,0)/nrm
+    corrs = np.zeros(t_output.size, dtype=np.complex_)
+    ek0_dagger = np.multiply(phases, sdata[0,0:N]) +  \
+      (1j) * np.multiply(phases, sdata[0,N:2*N])
+    for ti, t in np.ndenumerate(t_output):
+      (tind,) = ti
+      ekt = np.multiply(phases_conj, sdata[tind,0:N]) -\
+	(1j) * np.multiply(phases_conj, sdata[tind,N:2*N])
+      corrs[tind] = np.sum(fftconvolve(ek0_dagger, ekt))
+    return corrs
       
     
   def bbgky(self, time_info):
@@ -186,35 +176,44 @@ class BBGKY_System:
     returns the field correlations wrt the initial field
     """
     N = self.latsize
-    result = None
+
     if type(time_info).__module__ == np.__name__ :
       #An empty grid of size N X nalphas
       #Each element of this list is a dataset
-      localdata = [[None for e in range(nalphas)] \
-	for f in range(self.local_atoms.size)]
-      for count, mth_atom in np.ndenumerate(self.local_atoms):
+      localdata = [None for f in range(self.local_atoms.size)]
+      for tpl, mth_atom in np.ndenumerate(self.local_atoms):
+	(count,) = tpl
 	(m, coord_m) = mth_atom.index, mth_atom.coords
+	
+	corrs_summedover_alpha = \
+	  np.zeros(time_info.size, dtype=np.complex_)
         for alpha in xrange(nalphas):
 	  a, c = self.initconds(alpha, m)
 	  s_t = odeint(lindblad_bbgky_pywrap, \
 		np.concatenate((a.flatten(),c.flatten())),\
 		  time_info, args=(self,), Dfun=None)	    
-	  am_t = s_t[:,0:3*N][:,m::N]
-          localdata[count[0]][alpha] = am_t
-  
-      if self.verbose:
-	  if self.comm.rank == root:
-	    print("\nGathering all data to root now\n")
-          fulldata , distribution = gather_to_root(self.comm, \
-                  np.array(localdata), root=root)
-      else:
-          fulldata, distribution = gather_to_root(self.comm, \
-                  np.array(localdata), root=root)
-          distribution = None
-      if self.comm.rank == root:
-	result = self.field_correlations(time_info, fulldata)
+	  am_t = s_t[:,0:3*N]
+	  corrs_summedover_alpha += \
+	    self.field_correlations(time_info, am_t)
+	
+	localdata[count] = corrs_summedover_alpha
+      localsum_data = np.sum(np.array(localdata), axis=0)
+
+      alldata = self.comm.reduce(localsum_data, root=root)
       
-      return (result, distribution)
+      if self.comm.rank == root:
+	
+	alldata = np.array(alldata)/self.corr_norm
+	allsizes = np.zeros(self.comm.size)
+	distrib_atoms = np.zeros_like(allsizes)
+      else:
+	allsizes = None
+	distrib_atoms = None
+
+      distrib_atoms = \
+	self.comm.gather(self.local_atoms.size, distrib_atoms, root=0)
+      return (alldata, distrib_atoms, \
+	[atom.__dict__ for atom in self.atoms])
 
   def evolve(self, time_info):
     """

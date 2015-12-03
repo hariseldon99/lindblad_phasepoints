@@ -4,6 +4,7 @@ This example scripts computes the hopping matrix of a 2D lattice with
 power law (alpha) decay in the hopping amplitude
 """
 import numpy as np
+from pprint import pprint
 import csv
 from mpi4py import MPI
 import sys
@@ -15,7 +16,7 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 5
+  lattice_size = 10
   l = lattice_size
   amp = 1.0
   det = 1.0
@@ -36,10 +37,14 @@ def run_lb():
   nsteps = 200
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
-  corrdata, distribution = d.evolve(times)
+  (corrdata, distribution, atoms_info) = d.evolve(times)
   
   
   if rank == 0:
+    print "Data of atoms in gas:"
+    pprint(atoms_info)
+    print "Distribution of atoms in grid"
+    print distribution
     freqs = np.fft.fftfreq(corrdata.size, d=timestep)
     spectrum = np.fft.fft(corrdata)
     s = np.array_split(spectrum,2)[0]
