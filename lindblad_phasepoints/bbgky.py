@@ -141,6 +141,7 @@ class BBGKY_System:
       for atom_mu in self.atoms])
     
     
+    
   def initconds(self, alpha, lattice_index):
     N = self.latsize
     m = lattice_index
