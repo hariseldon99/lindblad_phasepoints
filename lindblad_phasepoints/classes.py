@@ -13,13 +13,13 @@ class ParamData:
        methods other than the constructor.
     """
     
-    def __init__(self, latsize=11, \
-			  amplitude=1.0, detuning=0.0, cloud_rad = 1.0):
+    def __init__(self, latsize=11, amplitude=1.0, detuning=0.0, \
+      cloud_rad=1.0, theta=0.0):
       
       """
        Usage:
        p = ParamData(latsize=100, \ 
-		      drv_amp=1.0, drv_freq=0.0)
+		      amplitude=1.0, detuning=0.0)
 		      
        All parameters (arguments) are optional.
        
@@ -32,19 +32,24 @@ class ParamData:
 		     detuning between atomic levels and incident light.
 		     Defaults to 0.0.
        cloud_rad  =  The radius of the gas cloud of atoms. Defaults to 1.0
+       theta	  =  Azimuthal angle of the incident laser beam. Defaults to 0
 
        Return value: 
        An object that stores all the parameters above. 
-       Note that the momentum (magnitude) of theincidentlight
+       Note that the momentum (magnitude) of theincident light
        is scaled to unity and propagates in the z-direction
+       by default unless you set the azimuth theta to a specific value
       """
 
       self.latsize = latsize
       self.drv_amp, self.drv_freq = amplitude, detuning
       self.cloud_rad = cloud_rad
       #Set the momentum to be unit magnitude in z direction
-      self.kvec = np.array([0.0, 0.0, 1.0]) 
+      self.kvec = np.array([np.sin(theta), 0.0, np.cos(theta)]) 
       self.corr_norm = 16.0 * self.latsize
+      self.cloud_density = \
+	self.latsize/((4./3.) * np.pi * pow(self.cloud_rad,3.0))
+      self.intpt_spacing = 1./pow(self.cloud_density,1./6.)
 
 class Atom:
   """

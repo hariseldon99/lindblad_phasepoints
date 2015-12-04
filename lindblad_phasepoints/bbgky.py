@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 from __future__ import division, print_function
-
+import sys
 from mpi4py import MPI
 from redirect_stdout import stdout_redirected
 import copy
 import numpy as np
 from scipy.integrate import odeint
 from pprint import pprint
-from scipy.signal import fftconvolve
 from numpy.linalg import norm
 
 from consts import *
@@ -59,7 +58,7 @@ class BBGKY_System:
 	from scipy and time-evolve all the sampled initial conditions.
   """
 
-  def __init__(self, params, mpicomm, verbose=False):
+  def __init__(self, params, mpicomm, atoms=None,verbose=False):
     """
     Initiates an instance of the Dtwa_System class. Copies parameters
     over from an instance of ParamData and stores precalculated objects .
@@ -73,9 +72,8 @@ class BBGKY_System:
        MPI_COMMUNICATOR = The MPI communicator that distributes the samples
 			  to parallel processes. Set to MPI_COMM_SELF if 
 			  running serially
-       n_t		= Number of initial conditions to sample randomly 
-			  from the discreet spin phase space. Defaults to
-			  2000.
+       atoms		= numpy array of atom objects. If 'None', then builds then
+			  atoms randomly
        verbose		= Boolean for choosing verbose outputs. Setting 
 			  to 'True' dumps verbose output to stdout, which
 			  consists of full output from the integrator. 
@@ -100,9 +98,19 @@ class BBGKY_System:
 
       #Build the gas cloud of atoms
       np.random.seed(seed)
-      self.atoms = np.array(\
-	[Atom(coords = r * np.random.random(3), index = i) \
-	  for i in xrange(N)]) 
+      if atoms == None:
+	self.atoms = np.array(\
+	  [Atom(coords = r * (2.0 * np.random.random(3)-1.0), index = i) \
+	    for i in xrange(N)])
+      #TODO: Impose interparticle spacing restrictions
+      elif type(atoms).__module__ == np.__name__:
+	if atoms.size >= N:
+	  self.atoms = atoms[0:N]
+	else:
+	  print("Error. Gas of atoms bigger than specified size")
+	  sys.exit(0)
+      else:
+	self.atoms = atoms
     else:
       self.atoms = None
       
@@ -146,27 +154,20 @@ class BBGKY_System:
     c = np.zeros((3,3,self.latsize, self.latsize))
     return a, c
   
-  def field_correlations(self, t_output, sdata):
+  def field_correlations(self, t_output, sdata, atom):
     """
     Compute the field correlations in
     times t_output wrt correlations at
     t_output[0]
     """
-    #spins_x = sdata[:,0:N]
-    #spins_y = sdata[:,N:2*N]
     N = self.latsize 
-    phases = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
+    (m, coord_m) = atom.index, atom.coords
+    phase_m = np.exp(-1j*self.kvec.dot(coord_m))
+    init_m = sdata[0,0:N][m] + (1j) * sdata[0,N:2*N][m] 
+    phases_conj = np.array([np.exp(1j*self.kvec.dot(atom.coords))\
       for atom in self.atoms])
-    phases_conj = np.conjugate(phases)
-    corrs = np.zeros(t_output.size, dtype=np.complex_)
-    ek0_dagger = np.multiply(phases, sdata[0,0:N]) +  \
-      (1j) * np.multiply(phases, sdata[0,N:2*N])
-    for ti, t in np.ndenumerate(t_output):
-      (tind,) = ti
-      ekt = np.multiply(phases_conj, sdata[tind,0:N]) -\
-	(1j) * np.multiply(phases_conj, sdata[tind,N:2*N])
-      corrs[tind] = np.sum(fftconvolve(ek0_dagger, ekt))
-    return corrs
+    return init_m * phase_m * \
+      ((sdata[:,0:N]- (1j)*sdata[:,N:2*N]).dot(phases_conj))
       
     
   def bbgky(self, time_info):
@@ -192,9 +193,8 @@ class BBGKY_System:
 	  s_t = odeint(lindblad_bbgky_pywrap, \
 		np.concatenate((a.flatten(),c.flatten())),\
 		  time_info, args=(self,), Dfun=None)	    
-	  am_t = s_t[:,0:3*N]
 	  corrs_summedover_alpha += \
-	    self.field_correlations(time_info, am_t)
+	    self.field_correlations(time_info, s_t[:,0:3*N], mth_atom)
 	
 	localdata[count] = corrs_summedover_alpha
       localsum_data = np.sum(np.array(localdata), axis=0)
