@@ -16,10 +16,10 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 10
+  lattice_size = 5
   l = lattice_size
   amp = 1.0
-  det = 1.0
+  det = 7.0
   density = 0.15
 
   rad = pow(3. * l/(4. * np.pi * density),1./3.)
@@ -33,8 +33,8 @@ def run_lb():
   
   #Prepare the times
   t0 = 0.0
-  ncyc = 1.5
-  nsteps = 200
+  ncyc = 4.0
+  nsteps = 800
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   (corrdata, distribution, atoms_info) = d.evolve(times)
