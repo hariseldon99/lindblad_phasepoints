@@ -2,12 +2,13 @@
 from __future__ import division, print_function
 import sys
 from mpi4py import MPI
-from redirect_stdout import stdout_redirected
+from reductions import Intracomm
 import copy
 import numpy as np
 from scipy.integrate import odeint
 from pprint import pprint
 from numpy.linalg import norm
+import time
 
 from consts import *
 from classes import *
@@ -18,16 +19,15 @@ try:
   mkl_avail = True
 except ImportError:
   mkl_avail = False
+#Try to import progressbars if available
+try:
+    import progressbar
+    pbar_avail = True
+except ImportError:
+    pbar_avail = False
 
-#Try to import lorenzo's optimized bbgky module, if available
 import lindblad_bbgky as lbbgky
 
-def kdel(i,j):
-  if (i==j):
-    return 1.
-  else:
-    return 0.
-  
 def lindblad_bbgky_pywrap(s, t, param):
    """
    Python wrapper to lindblad C bbgky module
@@ -89,25 +89,28 @@ class BBGKY_System:
     self.verbose = verbose
     r = self.cloud_rad
     N = self.latsize
+    self.mkl_avail = mkl_avail
+    self.pbar_avail = pbar_avail
  	
-    if mpicomm.rank == root:
+    if self.comm.rank == root:
       if self.verbose:
           out = copy.copy(self)
           out.deltamn = 0.0
           pprint(vars(out), depth=2)
-
       #Build the gas cloud of atoms
-      np.random.seed(seed)
       if atoms == None:
+	c, self.mindist  = generate_coordinates(self.latsize,\
+	  min = 2.0 * self.intpt_spacing, max = self.cloud_rad,\
+	    verbose=self.verbose)
+	if self.verbose:
+	  print("\n Minimum distance of atoms = \n", self.mindist)
 	self.atoms = np.array(\
-	  [Atom(coords = r * (2.0 * np.random.random(3)-1.0), index = i) \
-	    for i in xrange(N)])
-      #TODO: Impose interparticle spacing restrictions
+	  [Atom(coords = c[i], index = i) for i in xrange(N)])
       elif type(atoms).__module__ == np.__name__:
 	if atoms.size >= N:
 	  self.atoms = atoms[0:N]
 	else:
-	  print("Error. Gas of atoms bigger than specified size")
+	  print("Error. Gas of atoms smaller than specified size")
 	  sys.exit(0)
       else:
 	self.atoms = atoms
@@ -120,7 +123,7 @@ class BBGKY_System:
             dtype=np.float64, requirements=['A', 'O', 'W', 'C'])
     self.atoms = mpicomm.bcast(self.atoms, root=root)  
     #Scatter local copies of the atoms
-    if mpicomm.rank == root:
+    if self.comm.rank == root:
       sendbuf = np.array_split(self.atoms,mpicomm.size)
       local_size = np.array([spl.size for spl in sendbuf])
     else:
@@ -182,10 +185,15 @@ class BBGKY_System:
       #An empty grid of size N X nalphas
       #Each element of this list is a dataset
       localdata = [None for f in range(self.local_atoms.size)]
+      if pbar_avail:
+	if self.comm.rank == root and self.verbose: 
+	  pbar_max = self.local_atoms.size * nalphas
+	  bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
+	    max_value=pbar_max, redirect_stdout=False)
+	
       for tpl, mth_atom in np.ndenumerate(self.local_atoms):
 	(count,) = tpl
 	(m, coord_m) = mth_atom.index, mth_atom.coords
-	
 	corrs_summedover_alpha = \
 	  np.zeros(time_info.size, dtype=np.complex_)
         for alpha in xrange(nalphas):
@@ -195,14 +203,15 @@ class BBGKY_System:
 		  time_info, args=(self,), Dfun=None)	    
 	  corrs_summedover_alpha += \
 	    self.field_correlations(time_info, s_t[:,0:3*N], mth_atom)
-	
 	localdata[count] = corrs_summedover_alpha
+	if self.verbose and pbar_avail and self.comm.rank == root:
+	  bar.update(count * nalphas + alpha)
+      
       localsum_data = np.sum(np.array(localdata), axis=0)
-
-      alldata = self.comm.reduce(localsum_data, root=root)
+      duplicate_comm = Intracomm(self.comm)
+      alldata = duplicate_comm.reduce(localsum_data, root=root)
       
       if self.comm.rank == root:
-	
 	alldata = np.array(alldata)/self.corr_norm
 	allsizes = np.zeros(self.comm.size)
 	distrib_atoms = np.zeros_like(allsizes)

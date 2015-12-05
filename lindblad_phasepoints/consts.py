@@ -1,5 +1,16 @@
 # Some constant objects
 from numpy import eye, zeros, array
+
+#Progressbar widgets
+try:
+  from progressbar import Bar, Counter, ETA, Percentage
+  pbar_avail = True
+  widgets_rnd = ['Atom Generation: ', Percentage(), ' ', Bar(), ' ', ETA()]
+  widgets_bbgky = ['BBGKY Dynamics (MPI root): ', Percentage(), ' ', Bar(), ' ', ETA()]
+except ImportError:
+  pbar_avail = False
+  widgets = None
+
 seed = 8
 threshold = 1e-6
 root = 0
@@ -22,3 +33,6 @@ rvecs = array([[1., 1., 1.],
 		  [1., 1.,-1.],
 		  [-1., 1., 1.],
 		  [-1.,-1., -1.]])
+
+#Maximum number of points
+bigsize = 100000

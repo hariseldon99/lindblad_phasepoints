@@ -16,30 +16,16 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 8
+  lattice_size = 5
   l = lattice_size
   amp = 40.0
   det = 0.0
   
-  atom_positions = np.array(\
-    [[2.8905099e+00,  -6.4307892e-01,  -2.2003016e+00],
-    [-2.7971095e+00,  -5.7052033e+00,  -1.5733199e+00],
-    [-1.3179098e+00,  -9.9783672e-01,  -4.4932801e+00],
-    [2.4362181e+00,   7.2168340e-01,  -2.6250514e-01],
-    [1.9754890e+00,   5.7246455e+00,  -1.2107655e+00],
-    [-1.1571209e+00,  -3.4153661e+00,   1.2492316e+00],
-    [-4.8293769e-01,  -1.4840459e+00,   1.3405251e-01],
-    [-3.6379785e-01,  -9.0011327e-01,   2.4887775e+00]])
-  
-  a = np.array(\
-	  [lb.Atom(coords = atom_positions[i], index = i) \
-	    for i in xrange(l)])
-	
   #Initiate the parameters in object
-  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det)
+  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=7.0)
 
   #Initiate the DTWA system with the parameters 
-  d = lb.BBGKY_System(p, comm, verbose=True, atoms=a)
+  d = lb.BBGKY_System(p, comm, verbose=True)
   
   #Prepare the times
   t0 = 0.0
@@ -51,7 +37,7 @@ def run_lb():
   
   
   if rank == 0:
-    print " "  
+    print " "
     print "Data of atoms in gas:"
     pprint(atoms_info)
     print "Distribution of atoms in grid"

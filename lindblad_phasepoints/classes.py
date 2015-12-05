@@ -1,11 +1,67 @@
 #Class Library
 from mpi4py import MPI
 import numpy as np
+from numpy.linalg import norm
 from itertools import starmap
 import operator as op
 from consts import *
 import math
 from scipy.sparse import dia_matrix
+
+#Try to import progressbars if available
+try:
+    import progressbar
+    pbar_avail = True
+except ImportError:
+    pbar_avail = False
+
+def generate_coordinates(size, min = 0.0, max = 1.0, verbose=False):
+  """
+  Usage: 
+  a = generate_coordinates(size, min = 0.1, max=3.0)
+  
+  Parameters:
+  size 		  = size of output
+  min (optional)  = minimum 2-norm between any 2 
+			    elements of output. Defaults to 0
+  verbose 	  = Boolean. If set to True and the 
+			    progressbar2 module is installed,
+			    then shows a progresbar. Default is 
+			    False
+
+ Returns:
+  Tuple (array, mdist)
+  array = A numpy array of shape (size,3) of random elements. Each element
+	      is a 3-dimensional cartesian vector whose norm is less than 'max' 
+	      (optional, default is 1.0). This one uses a smart method
+	      1. Make a random list of many many points  
+	      2. Pick a point from this list at random
+	      3. Remove from list all points that lie within 'min' distance of it
+	      4. Repeat above steps 'size' times and return the picked points
+ mdist = Minimum distance between 2 elements in array	      
+  """  
+  if pbar_avail and verbose:
+      bar = progressbar.ProgressBar(widgets=widgets_rnd,\
+              max_value=size, redirect_stdout=False)
+  np.random.seed(seed)
+  d = max - min
+  r = np.random.uniform(0.0,d, size=bigsize)
+  theta = np.random.uniform(0.0, np.pi, size=bigsize)
+  phi = np.random.uniform(0.0, 2.0 * np.pi, size=bigsize)
+  manypoints = np.vstack((r * np.sin(theta) * np.cos(phi),\
+    r * np.sin(theta) * np.sin(phi), r * np.cos(theta))).T
+  
+  points = []
+  atom_count = 0
+  while atom_count < size:
+    if pbar_avail and verbose:
+      bar.update(atom_count)  
+    p =  manypoints[np.random.randint(bigsize),:]
+    atom_count += 1
+    manypoints = manypoints[norm(p - manypoints, axis=1) > min]
+    points.append(p)
+  return points,\
+    np.amin(scipy.spatial.distance.pdist(np.array(points), 'euclidean'))
 
 class ParamData:
     """Class that stores Hamiltonian and lattice parameters 
@@ -14,7 +70,7 @@ class ParamData:
     """
     
     def __init__(self, latsize=11, amplitude=1.0, detuning=0.0, \
-      cloud_rad=1.0, theta=0.0):
+      cloud_rad=100.0, theta=0.0):
       
       """
        Usage:
@@ -24,15 +80,15 @@ class ParamData:
        All parameters (arguments) are optional.
        
        Parameters:
-       latsize    =  The size of your lattice as an integer. This can be in 
-		     any dimensions
+       latsize   	 =  The size of your lattice as an integer. This can be in 
+			      any dimensions
        amplitude  =  The periodic (cosine) drive amplitude 
-		     Defaults to 1.0.
-       detuning   =  The periodic (cosine) drive frequency, i.e.
-		     detuning between atomic levels and incident light.
-		     Defaults to 0.0.
-       cloud_rad  =  The radius of the gas cloud of atoms. Defaults to 1.0
-       theta	  =  Azimuthal angle of the incident laser beam. Defaults to 0
+			      Defaults to 1.0.
+       detuning   	 =  The periodic (cosine) drive frequency, i.e.
+			      detuning between atomic levels and incident light.
+			      Defaults to 0.0.
+       cloud_rad  =  The radius of the gas cloud of atoms. Defaults to 100.0
+       theta	 	 =  Azimuthal angle of the incident laser beam. Defaults to 0
 
        Return value: 
        An object that stores all the parameters above. 
@@ -70,12 +126,12 @@ class Atom:
        
        Parameters:
        coords 	=  The 2D coordinates of the atom in the cloud, entered as a 
-		   numpy array of double precision floats np.array([x,y])
+			    numpy array of double precision floats np.array([x,y])
 		   
        index 	=  The index of the atom while being counted among others.
-		   These are counted from 0
+			    These are counted from 0
        latsize  =  The size of your lattice as an integer. This can be in 
-		   any dimensions
+			any dimensions
 			   
        Return value: 
        An atom object  
