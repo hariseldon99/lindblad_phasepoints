@@ -1,2 +1,1 @@
-1. Bug may still be there in the bbgky dynamics
-2. Small bug in generate_coordinates()
+1. Put in multiple k vectors as input for multiple measurement directions

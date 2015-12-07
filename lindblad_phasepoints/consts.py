@@ -5,8 +5,9 @@ from numpy import eye, zeros, array
 try:
   from progressbar import Bar, Counter, ETA, Percentage
   pbar_avail = True
-  widgets_rnd = ['Atom Generation: ', Percentage(), ' ', Bar(), ' ', ETA()]
-  widgets_bbgky = ['BBGKY Dynamics (MPI root): ', Percentage(), ' ', Bar(), ' ', ETA()]
+  widgets_rnd = ['Creating atoms: ', Percentage(), ' ', Bar(), ' ', ETA()]
+  widgets_bbgky = ['BBGKY  dynamics (root only): ',\
+    Percentage(), ' ', Bar(), ' ', ETA()]
 except ImportError:
   pbar_avail = False
   widgets = None

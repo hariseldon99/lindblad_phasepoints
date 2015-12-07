@@ -100,10 +100,10 @@ class BBGKY_System:
       #Build the gas cloud of atoms
       if atoms == None:
 	c, self.mindist  = generate_coordinates(self.latsize,\
-	  min = 2.0 * self.intpt_spacing, max = self.cloud_rad,\
+	  min = self.intpt_spacing, max = self.cloud_rad,\
 	    verbose=self.verbose)
 	if self.verbose:
-	  print("\n Minimum distance of atoms = \n", self.mindist)
+	  print("\nDone. Minimum distance between atoms = ", self.mindist)
 	self.atoms = np.array(\
 	  [Atom(coords = c[i], index = i) for i in xrange(N)])
       elif type(atoms).__module__ == np.__name__:
@@ -160,17 +160,20 @@ class BBGKY_System:
   def field_correlations(self, t_output, sdata, atom):
     """
     Compute the field correlations in
-    times t_output wrt correlations at
-    t_output[0]
+    times t_output wrt correlations near
+    self.mtime
     """
-    N = self.latsize 
+    N = self.latsize
+    #Adjust the value mtime to the nearest value in the input array
+    init_arg = np.abs(t_output - self.mtime).argmin()
     (m, coord_m) = atom.index, atom.coords
     phase_m = np.exp(-1j*self.kvec.dot(coord_m))
-    init_m = sdata[0,0:N][m] + (1j) * sdata[0,N:2*N][m] 
+    init_m = sdata[init_arg,0:N][m] + (1j) * sdata[init_arg,N:2*N][m] 
     phases_conj = np.array([np.exp(1j*self.kvec.dot(atom.coords))\
       for atom in self.atoms])
     return init_m * phase_m * \
-      ((sdata[:,0:N]- (1j)*sdata[:,N:2*N]).dot(phases_conj))
+      ((sdata[:, 0:N] - (1j) * sdata[:, N:2*N]).\
+	dot(phases_conj))
       
     
   def bbgky(self, time_info):
@@ -187,10 +190,13 @@ class BBGKY_System:
       localdata = [None for f in range(self.local_atoms.size)]
       if pbar_avail:
 	if self.comm.rank == root and self.verbose: 
-	  pbar_max = self.local_atoms.size * nalphas
+	  pbar_max = self.local_atoms.size * nalphas - 1
 	  bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
 	    max_value=pbar_max, redirect_stdout=False)
-	
+	   
+      if self.verbose and pbar_avail and self.comm.rank == root:
+	  bar.update(0)
+	  
       for tpl, mth_atom in np.ndenumerate(self.local_atoms):
 	(count,) = tpl
 	(m, coord_m) = mth_atom.index, mth_atom.coords
@@ -203,9 +209,9 @@ class BBGKY_System:
 		  time_info, args=(self,), Dfun=None)	    
 	  corrs_summedover_alpha += \
 	    self.field_correlations(time_info, s_t[:,0:3*N], mth_atom)
+	  if self.verbose and pbar_avail and self.comm.rank == root:
+	    bar.update(count * nalphas + alpha)
 	localdata[count] = corrs_summedover_alpha
-	if self.verbose and pbar_avail and self.comm.rank == root:
-	  bar.update(count * nalphas + alpha)
       
       localsum_data = np.sum(np.array(localdata), axis=0)
       duplicate_comm = Intracomm(self.comm)

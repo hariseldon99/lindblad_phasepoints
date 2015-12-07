@@ -20,17 +20,18 @@ def run_lb():
   l = lattice_size
   amp = 40.0
   det = 0.0
-  
+  r = 3.5
+  steady_state_time = 8.0
   #Initiate the parameters in object
-  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=7.0)
+  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=r, mtime=steady_state_time)
 
   #Initiate the DTWA system with the parameters 
   d = lb.BBGKY_System(p, comm, verbose=True)
   
   #Prepare the times
   t0 = 0.0
-  ncyc = 1.0
-  nsteps = 100
+  ncyc = 10.0
+  nsteps = 1000
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   (corrdata, distribution, atoms_info) = d.evolve(times)

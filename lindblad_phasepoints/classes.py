@@ -7,6 +7,7 @@ import operator as op
 from consts import *
 import math
 from scipy.sparse import dia_matrix
+from scipy.spatial.distance import pdist
 
 #Try to import progressbars if available
 try:
@@ -42,26 +43,25 @@ def generate_coordinates(size, min = 0.0, max = 1.0, verbose=False):
   """  
   if pbar_avail and verbose:
       bar = progressbar.ProgressBar(widgets=widgets_rnd,\
-              max_value=size, redirect_stdout=False)
+              max_value=size-1, redirect_stdout=False)
   np.random.seed(seed)
-  d = max - min
-  r = np.random.uniform(0.0,d, size=bigsize)
+  r = np.linspace(0.0,max, num=bigsize)
   theta = np.random.uniform(0.0, np.pi, size=bigsize)
   phi = np.random.uniform(0.0, 2.0 * np.pi, size=bigsize)
   manypoints = np.vstack((r * np.sin(theta) * np.cos(phi),\
     r * np.sin(theta) * np.sin(phi), r * np.cos(theta))).T
-  
+  mp_size = bigsize
   points = []
   atom_count = 0
   while atom_count < size:
     if pbar_avail and verbose:
-      bar.update(atom_count)  
-    p =  manypoints[np.random.randint(bigsize),:]
-    atom_count += 1
+      bar.update(atom_count)    
+    p =  manypoints[np.random.randint(mp_size),:]
     manypoints = manypoints[norm(p - manypoints, axis=1) > min]
+    mp_size = manypoints[:,0].size
     points.append(p)
-  return points,\
-    np.amin(scipy.spatial.distance.pdist(np.array(points), 'euclidean'))
+    atom_count += 1
+  return points, np.amin(pdist(np.array(points), 'euclidean'))
 
 class ParamData:
     """Class that stores Hamiltonian and lattice parameters 
@@ -70,7 +70,7 @@ class ParamData:
     """
     
     def __init__(self, latsize=11, amplitude=1.0, detuning=0.0, \
-      cloud_rad=100.0, theta=0.0):
+      cloud_rad=100.0, theta=0.0, mtime = 0.0):
       
       """
        Usage:
@@ -89,6 +89,9 @@ class ParamData:
 			      Defaults to 0.0.
        cloud_rad  =  The radius of the gas cloud of atoms. Defaults to 100.0
        theta	 	 =  Azimuthal angle of the incident laser beam. Defaults to 0
+       mtime	 =  Time at which the correlations are evaluated i.e. the 
+			      quantity <E^\dagger (mtime) * E(mtime+t)> where
+			      E is the electric field. Defaults to 0 ie initial correlations.
 
        Return value: 
        An object that stores all the parameters above. 
@@ -106,6 +109,7 @@ class ParamData:
       self.cloud_density = \
 	self.latsize/((4./3.) * np.pi * pow(self.cloud_rad,3.0))
       self.intpt_spacing = 1./pow(self.cloud_density,1./6.)
+      self.mtime = mtime
 
 class Atom:
   """
