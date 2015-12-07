@@ -20,18 +20,19 @@ def run_lb():
   l = lattice_size
   amp = 40.0
   det = 0.0
-  r = 3.5
-  steady_state_time = 8.0
+  rad = 3.5
+  steady_state_time = 20.0
+  theta=np.pi/2.
   #Initiate the parameters in object
-  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=r, mtime=steady_state_time)
+  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=rad, mtime=steady_state_time, theta=theta)
 
   #Initiate the DTWA system with the parameters 
   d = lb.BBGKY_System(p, comm, verbose=True)
   
   #Prepare the times
   t0 = 0.0
-  ncyc = 10.0
-  nsteps = 1000
+  ncyc = 4.0
+  nsteps = 100
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   (corrdata, distribution, atoms_info) = d.evolve(times)
@@ -48,14 +49,14 @@ def run_lb():
     s = np.array_split(spectrum,2)[0]
     f = np.array_split(freqs,2)[0]
     #Prepare the output files. One for each observable
-    fname = "corr_time_" + "amp_" + str(amp) + "_det" + str(det) 
-    #fname += "_cldrad_" + str(rad) 
+    fname = "corr_time_" + "amp_" + str(amp) + "_det" + str(det) + "_theta" + str(theta)
+    fname += "_cldrad_" + str(rad) 
     fname += "_N_" + str(l) + ".txt"
     #Dump each observable to a separate file
     np.savetxt(fname, np.vstack((np.abs(times), corrdata.real, corrdata.imag)).T, delimiter=' ')
 
-    fname = "spectrum_omega_" + "amp_" + str(amp) + "_det" + str(det) 
-    #fname += "_cldrad_" + str(rad)  
+    fname = "spectrum_omega_" + "amp_" + str(amp) + "_det" + str(det) + "_theta" + str(theta)
+    fname += "_cldrad_" + str(rad)  
     fname += "_N_" + str(l) + ".txt"
     np.savetxt(fname, np.vstack((np.abs(f), np.abs(s))).T, delimiter=' ')
 

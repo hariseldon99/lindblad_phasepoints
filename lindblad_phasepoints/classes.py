@@ -45,12 +45,14 @@ def generate_coordinates(size, min = 0.0, max = 1.0, verbose=False):
       bar = progressbar.ProgressBar(widgets=widgets_rnd,\
               max_value=size-1, redirect_stdout=False)
   np.random.seed(seed)
-  r = np.linspace(0.0,max, num=bigsize)
-  theta = np.random.uniform(0.0, np.pi, size=bigsize)
-  phi = np.random.uniform(0.0, 2.0 * np.pi, size=bigsize)
-  manypoints = np.vstack((r * np.sin(theta) * np.cos(phi),\
-    r * np.sin(theta) * np.sin(phi), r * np.cos(theta))).T
-  mp_size = bigsize
+  
+  x = np.random.uniform(-max,max, size=bigsize)
+  y = np.random.uniform(-max,max, size=bigsize)
+  z = np.random.uniform(-max,max, size=bigsize)
+ 
+  manypoints = np.vstack((x,y,z)).T
+  manypoints = manypoints[norm(manypoints,axis=1)<=max]
+  mp_size = manypoints.shape[0]
   points = []
   atom_count = 0
   while atom_count < size:
@@ -108,7 +110,7 @@ class ParamData:
       self.corr_norm = 16.0 * self.latsize
       self.cloud_density = \
 	self.latsize/((4./3.) * np.pi * pow(self.cloud_rad,3.0))
-      self.intpt_spacing = 1./pow(self.cloud_density,1./6.)
+      self.intpt_spacing = 0.5/pow(self.cloud_density,1./3.)
       self.mtime = mtime
 
 class Atom:
