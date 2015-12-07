@@ -46,7 +46,7 @@ def lindblad_bbgky_pywrap(s, t, param):
        param.drv_amp, param.latsize,dsdt)
    return dsdt
 
-class BBGKY_System:
+class BBGKY_System_Noneqm:
   """
     Class that creates the BBGKY system.
     
@@ -60,11 +60,12 @@ class BBGKY_System:
 
   def __init__(self, params, mpicomm, atoms=None,verbose=False):
     """
-    Initiates an instance of the Dtwa_System class. Copies parameters
-    over from an instance of ParamData and stores precalculated objects .
+    Initiates an instance of the BBGKY_System_Noneqm class. Copies 
+    parameters over from an instance of ParamData and stores 
+    precalculated objects .
     
        Usage:
-       d = Dtwa_System(Paramdata, MPI_COMMUNICATOR, verbose=True)
+       d = BBGKY_System_Noneqm(Paramdata, MPI_COMMUNICATOR, verbose=True)
        
        Parameters:
        Paramdata 	= An instance of the class "ParamData". 
@@ -176,11 +177,12 @@ class BBGKY_System:
 	dot(phases_conj))
       
     
-  def bbgky(self, time_info):
+  def bbgky_noneqm(self, time_info):
     """
     Evolves the BBGKY dynamics for selected phase points
     call with bbgky(t), where t is an array of times
-    returns the field correlations wrt the initial field
+    returns the "nonequilibrium" field correlations 
+    i.e. correlations w.r.t. the initial field
     """
     N = self.latsize
 
@@ -260,4 +262,4 @@ class BBGKY_System:
       An tuple object that contains
 	t. A numpy array of field correlations at time wrt field at time[0]
     """
-    return self.bbgky(time_info)
+    return self.bbgky_noneqm(time_info)
