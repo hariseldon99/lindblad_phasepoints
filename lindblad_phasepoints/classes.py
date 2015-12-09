@@ -72,7 +72,7 @@ class ParamData:
     """
     
     def __init__(self, latsize=11, amplitude=1.0, detuning=0.0, \
-      cloud_rad=100.0, theta=0.0, mtime = 0.0):
+      cloud_rad=100.0, kvecs=np.array([0.0,0.0,1.0]), mtime = 0.0):
       
       """
        Usage:
@@ -90,8 +90,10 @@ class ParamData:
 			      detuning between atomic levels and incident light.
 			      Defaults to 0.0.
        cloud_rad  =  The radius of the gas cloud of atoms. Defaults to 100.0
-       theta	 	 =  Azimuthal angle of the incident laser beam. Defaults to 0
-       mtime	 =  Time at which the correlations are evaluated i.e. the 
+       kvecs	  =  Array of 3-vectors. Each vector is a momentum of the incident laser
+		     use different angles for different orientations at which spectra 
+		     is measured. Defaults to np.array([0.0,0.0,1.0])
+       mtime	  =   Time at which the correlations are evaluated i.e. the 
 			      quantity <E^\dagger (mtime) * E(mtime+t)> where
 			      E is the electric field. Defaults to 0 ie initial correlations.
 
@@ -105,8 +107,9 @@ class ParamData:
       self.latsize = latsize
       self.drv_amp, self.drv_freq = amplitude, detuning
       self.cloud_rad = cloud_rad
-      #Set the momentum to be unit magnitude in z direction
-      self.kvec = np.array([np.sin(theta), 0.0, np.cos(theta)]) 
+      #Set the momenta to be unit magnitude 
+      self.kvecs = \
+	kvecs/np.apply_along_axis(norm, -1, kvecs).reshape(-1,1)
       self.corr_norm = 16.0 * self.latsize
       self.cloud_density = \
 	self.latsize/((4./3.) * np.pi * pow(self.cloud_rad,3.0))

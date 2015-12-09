@@ -9,6 +9,7 @@ import csv
 from mpi4py import MPI
 import sys
 import lindblad_phasepoints as lb
+from tabulate import tabulate
  
 def run_lb():
   comm = MPI.COMM_WORLD
@@ -19,12 +20,16 @@ def run_lb():
   lattice_size = 5
   l = lattice_size
   amp = 40.0
-  det = 0.0
+  det = 3.0
   rad = 3.5
-  steady_state_time = 20.0
-  theta=np.pi/2.
+  thetas = np.array([0.0,np.pi/4.])
+  kx = np.sin(thetas)
+  ky = np.zeros(2)
+  kz = np.cos(thetas)
+  momenta = np.vstack((kx,ky,kz)).T
+
   #Initiate the parameters in object
-  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=rad, mtime=steady_state_time, theta=theta)
+  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=rad, mtime=0.0, kvecs=momenta)
 
   #Initiate the DTWA system with the parameters 
   d = lb.BBGKY_System_Noneqm(p, comm, verbose=True)
@@ -41,24 +46,25 @@ def run_lb():
   if rank == 0:
     print " "
     print "Data of atoms in gas:"
-    pprint(atoms_info)
+    print tabulate(atoms_info, headers="keys", tablefmt="fancy_grid")
     print "Distribution of atoms in grid"
     print distribution
-    freqs = np.fft.fftfreq(corrdata.size, d=timestep)
-    spectrum = np.fft.fft(corrdata)
-    s = np.array_split(spectrum,2)[0]
-    f = np.array_split(freqs,2)[0]
-    #Prepare the output files. One for each observable
-    fname = "corr_time_" + "amp_" + str(amp) + "_det" + str(det) + "_theta" + str(theta)
-    fname += "_cldrad_" + str(rad) 
-    fname += "_N_" + str(l) + ".txt"
-    #Dump each observable to a separate file
-    np.savetxt(fname, np.vstack((np.abs(times), corrdata.real, corrdata.imag)).T, delimiter=' ')
+    for (count,data) in enumerate(corrdata):
+    	freqs = np.fft.fftfreq(data.size, d=timestep)
+    	spectrum = np.fft.fft(data)
+    	s = np.array_split(spectrum,2)[0]
+    	f = np.array_split(freqs,2)[0]
+    	#Prepare the output files. One for each observable
+    	fname = "corr_time_" + "amp_" + str(amp) + "_det_" + str(det) + "_theta_" + str(thetas[count])
+    	fname += "_cldrad_" + str(rad) 
+    	fname += "_N_" + str(l) + ".txt"
+    	#Dump each observable to a separate file
+    	np.savetxt(fname, np.vstack((np.abs(times), data.real, data.imag)).T, delimiter=' ')
 
-    fname = "spectrum_omega_" + "amp_" + str(amp) + "_det" + str(det) + "_theta" + str(theta)
-    fname += "_cldrad_" + str(rad)  
-    fname += "_N_" + str(l) + ".txt"
-    np.savetxt(fname, np.vstack((np.abs(f), np.abs(s))).T, delimiter=' ')
+    	fname = "spectrum_omega_" + "amp_" + str(amp) + "_det_" + str(det) + "_theta_" + str(thetas[count])
+    	fname += "_cldrad_" + str(rad)  
+    	fname += "_N_" + str(l) + ".txt"
+    	np.savetxt(fname, np.vstack((np.abs(f), np.abs(s))).T, delimiter=' ')
 
 if __name__ == '__main__':
   run_lb()

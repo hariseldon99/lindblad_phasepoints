@@ -13,7 +13,7 @@ import time
 from consts import *
 from classes import *
 
-#Try to import mkl if it is available
+#Try to import mkl if available
 try:
   import mkl
   mkl_avail = True
@@ -25,7 +25,7 @@ try:
     pbar_avail = True
 except ImportError:
     pbar_avail = False
-
+    
 import lindblad_bbgky as lbbgky
 
 def lindblad_bbgky_pywrap(s, t, param):
@@ -97,7 +97,7 @@ class BBGKY_System_Noneqm:
       if self.verbose:
           out = copy.copy(self)
           out.deltamn = 0.0
-          pprint(vars(out), depth=2)
+	  pprint(vars(out), depth=2)
       #Build the gas cloud of atoms
       if atoms == None:
 	c, self.mindist  = generate_coordinates(self.latsize,\
@@ -146,8 +146,6 @@ class BBGKY_System_Noneqm:
 	j+=1
     self.deltamat = self.deltamat + self.deltamat.T
     self.gammamat = self.gammamat + self.gammamat.T
-    self.kr = np.array([self.kvec.dot(atom_mu.coords) \
-      for atom_mu in self.atoms])
     
   def initconds(self, alpha, lattice_index):
     N = self.latsize
@@ -189,35 +187,46 @@ class BBGKY_System_Noneqm:
     if type(time_info).__module__ == np.__name__ :
       #An empty grid of size N X nalphas
       #Each element of this list is a dataset
-      localdata = [None for f in range(self.local_atoms.size)]
+      localdata = [[None for f in range(self.local_atoms.size)] \
+	for kvec in self.kvecs]
       if pbar_avail:
 	if self.comm.rank == root and self.verbose: 
-	  pbar_max = self.local_atoms.size * nalphas - 1
+	  pbar_max = \
+	    self.kvecs.shape[0] * self.local_atoms.size * nalphas - 1
 	  bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
 	    max_value=pbar_max, redirect_stdout=False)
 	   
       if self.verbose and pbar_avail and self.comm.rank == root:
 	  bar.update(0)
+   
+      for kcount in xrange(self.kvecs.shape[0]):
+	self.kvec = self.kvecs[kcount]
+	self.kr = np.array([self.kvec.dot(atom_mu.coords) \
+	      for atom_mu in self.atoms])
+	for tpl, mth_atom in np.ndenumerate(self.local_atoms):
+	  (atom_count,) = tpl
+	  (m, coord_m) = mth_atom.index, mth_atom.coords
+	  corrs_summedover_alpha = \
+	    np.zeros(time_info.size, dtype=np.complex_)
+	  for alpha in xrange(nalphas):
+	    a, c = self.initconds(alpha, m)
+	    s_t = odeint(lindblad_bbgky_pywrap, \
+		  np.concatenate((a.flatten(),c.flatten())),\
+		    time_info, args=(self,), Dfun=None)	    
+	    corrs_summedover_alpha += \
+	      self.field_correlations(time_info, s_t[:,0:3*N], mth_atom)
+	    if self.verbose and pbar_avail and self.comm.rank == root:
+	      bar_pos = kcount*(self.local_atoms.size * nalphas) + \
+		atom_count * nalphas + alpha
+	      bar.update(bar_pos)
+	  localdata[kcount][atom_count] = corrs_summedover_alpha
 	  
-      for tpl, mth_atom in np.ndenumerate(self.local_atoms):
-	(count,) = tpl
-	(m, coord_m) = mth_atom.index, mth_atom.coords
-	corrs_summedover_alpha = \
-	  np.zeros(time_info.size, dtype=np.complex_)
-        for alpha in xrange(nalphas):
-	  a, c = self.initconds(alpha, m)
-	  s_t = odeint(lindblad_bbgky_pywrap, \
-		np.concatenate((a.flatten(),c.flatten())),\
-		  time_info, args=(self,), Dfun=None)	    
-	  corrs_summedover_alpha += \
-	    self.field_correlations(time_info, s_t[:,0:3*N], mth_atom)
-	  if self.verbose and pbar_avail and self.comm.rank == root:
-	    bar.update(count * nalphas + alpha)
-	localdata[count] = corrs_summedover_alpha
-      
-      localsum_data = np.sum(np.array(localdata), axis=0)
       duplicate_comm = Intracomm(self.comm)
-      alldata = duplicate_comm.reduce(localsum_data, root=root)
+      alldata = [None for i in self.kvecs]
+      for kcount in xrange(self.kvecs.shape[0]):
+	localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
+	alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
+	
       
       if self.comm.rank == root:
 	alldata = np.array(alldata)/self.corr_norm
@@ -247,19 +256,22 @@ class BBGKY_System_Noneqm:
        data = d.evolve(times)
        
        Required parameters:
-       times 		= Time information. There are 2 options: 
-			  1. A 3-tuple (t0, t1, steps), where t0(1) is the 
-			      initial (final) time, and steps are the number
-			      of time steps that are in the output. 
-			  2. A list or numpy array with the times entered
-			      manually.
+       times 		=  Time information. Must be a list or numpy array 
+			   with the times entered. Need not be uniform
 			      
-			      Note that the integrator method and the actual step sizes
-			      are controlled internally by the integrator. 
-			      See the relevant docs for scipy.integrate.odeint.
+			   Note that the integrator method and the actual step sizes
+			   are controlled internally by the integrator. 
+			   See the relevant docs for scipy.integrate.odeint.
 
       Return value: 
-      An tuple object that contains
-	t. A numpy array of field correlations at time wrt field at time[0]
+      An tuple object (data, distrib, atomdata) that contains
+	data		=  A numpy array of field correlations at time wrt field at 
+			   mtime (provided in params). The shape is (times, # of kvecs 
+			   provided in params) so data[j] are the correlations for 
+			   kvecs[j] at all the times provided
+	distrib		=  A numpy array where distrib[i] is the number of atoms 
+			   processed by MPI rank i (for debugging purposes)
+	atomdata	=  A dictionary containing the indices and positions
+			   of all the atoms
     """
     return self.bbgky_noneqm(time_info)
