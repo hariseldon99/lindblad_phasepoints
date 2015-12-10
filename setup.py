@@ -2,7 +2,7 @@ from distutils.core import setup, Extension
 import numpy as np
 
 #Change these as needed
-blas_path = '/usr/lib'
+blas_path = '/usr/lib64'
 blas_headers = '/usr/include'
 #Order of optimization or any other compiler options you wanna add
 opt = "-O3"
