@@ -1,25 +1,27 @@
 #!/bin/bash
 #########################################################################
 ## Name of my job
-#PBS -N dtwa
-#PBS -l walltime=1:00:00
+#PBS -N lindblad_N100
+#PBS -l walltime=24:00:00
 #########################################################################
 ##Export all PBS environment variables
 #PBS -V
 #########################################################################
 ##Output file. Combine stdout and stderr into one
-#PBS -j oe ${PBS_JOBNAME}.o${PBS_JOBID}
+#PBS -o stdout.txt
+#PBS -e stderr.txt
+#PBS -j oe
 #########################################################################
 ##Number of nodes and procs per node.
 ##The ib at the end means infiniband. Use that or else MPI gets confused 
 ##with ethernet
-#PBS -l nodes=10:ppn=8
+#PBS -l nodes=12:ppn=8
 #########################################################################
 ##Send me email when my job aborts, begins, or ends
 #PBS -m ea
 #PBS -M daneel@sun.ac.za
 #########################################################################
-SCRIPT="./dtwa_2d_spins.py"
+SCRIPT="./N_100.py"
 
 cd $PBS_O_WORKDIR
 
