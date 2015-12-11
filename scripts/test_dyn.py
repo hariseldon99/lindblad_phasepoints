@@ -1,8 +1,4 @@
 #!/usr/bin/env python
-"""
-This example scripts computes the hopping matrix of a 2D lattice with
-power law (alpha) decay in the hopping amplitude
-"""
 import numpy as np
 from pprint import pprint
 import csv
@@ -52,6 +48,7 @@ def run_lb():
     for (count,data) in enumerate(corrdata):
     	freqs = np.fft.fftfreq(data.size, d=timestep)
     	spectrum = np.fft.fft(data)
+        print freqs.shape, spectrum.shape
     	s = np.array_split(spectrum,2)[0]
     	f = np.array_split(freqs,2)[0]
     	#Prepare the output files. One for each observable

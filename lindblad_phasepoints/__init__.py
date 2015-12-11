@@ -23,5 +23,8 @@ __version__   = '0.1'
 __author__    = 'Analabha Roy'
 __credits__   = 'Lorenzo Pucci, NiTheP Stellenbosch'
 
-__all__ = ["consts", "classes", "bbgky_noneqm"]
+__all__ = ["reductions", "generate_coord", "consts", "classes", \
+  "bbgky_pywrap", "bbgky_noneqm", "bbgky_eqm"]
+
 from bbgky_noneqm import *
+from bbgky_eqm import *

@@ -20,7 +20,7 @@ try:
   mkl_avail = True
 except ImportError:
   mkl_avail = False
-  
+
 #Try to import progressbars if available
 try:
     import progressbar
@@ -28,7 +28,7 @@ try:
 except ImportError:
     pbar_avail = False
     
-class BBGKY_System_Noneqm:
+class BBGKY_System_Eqm:
   """
     Class that creates the BBGKY system.
     
@@ -38,7 +38,7 @@ class BBGKY_System_Noneqm:
 	from phase points and execute the BBGKY dynamics where the rhs 
 	of the dynamics uses optimized C code. These methods call integrators 
 	from scipy and time-evolve all the sampled initial conditions.
-	This class is for the non-equilibrium spectra.
+	This class is for the equilibrium spectra.
   """
 
   def __init__(self, params, mpicomm, atoms=None,verbose=False):
@@ -75,8 +75,7 @@ class BBGKY_System_Noneqm:
     N = self.latsize
     self.mkl_avail = mkl_avail
     self.pbar_avail = pbar_avail
-    self.corr_norm = 16.0 * self.latsize
-    
+ 	
     if self.comm.rank == root:
       if self.verbose:
           out = copy.copy(self)
