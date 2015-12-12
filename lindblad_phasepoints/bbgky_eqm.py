@@ -158,11 +158,11 @@ class BBGKY_System_Eqm:
 	dot(phases_conj))
       
     
-  def bbgky_noneqm(self, time_info):
+  def bbgky_eqm(self, time_info):
     """
     Evolves the BBGKY dynamics for selected phase points
     call with bbgky(t), where t is an array of times
-    returns the "nonequilibrium" field correlations 
+    returns the "equilibrium" field correlations 
     i.e. correlations w.r.t. the initial field
     """
     N = self.latsize
@@ -257,4 +257,4 @@ class BBGKY_System_Eqm:
 	atomdata	=  A dictionary containing the indices and positions
 			   of all the atoms
     """
-    return self.bbgky_noneqm(time_info)
+    return self.bbgky_eqm(time_info)

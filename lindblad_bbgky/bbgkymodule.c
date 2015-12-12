@@ -1,5 +1,7 @@
 #include "lindblad_bbgky.h"
 
+char Py_MethodName[] = "bbgky";
+
 static PyObject *
 wrap_bbgky (PyObject * self, PyObject * args)
 {
@@ -10,8 +12,10 @@ wrap_bbgky (PyObject * self, PyObject * args)
   PyObject *workspace = NULL;
   PyObject *s = NULL, *deltamat = NULL, *gammamat = NULL, *dtkr = NULL;
   PyObject *dsdt = NULL;
+
   double drv_amp;
   int latsize, ret;
+  int w_size, s_size;
 
   if (!PyArg_ParseTuple
       (args, "OOOOOdiO!", &arg0, &arg1, &arg2, &arg3, &arg4, &drv_amp,
@@ -21,23 +25,40 @@ wrap_bbgky (PyObject * self, PyObject * args)
   workspace = PyArray_FROM_OTF (arg0, NPY_DOUBLE, NPY_IN_ARRAY);
   if (workspace == NULL)
     return NULL;
+
   s = PyArray_FROM_OTF (arg1, NPY_DOUBLE, NPY_IN_ARRAY);
   if (s == NULL)
     return NULL;
+
+  s_size = 3 * latsize + 9 * latsize * latsize;
+  w_size = 2 * s_size;
+
+  if (PyArray_NDIM (workspace) != 1)
+    goto fail;
+  else if (PyArray_DIMS (workspace)[0] != w_size)
+    goto fail;
+
   if (PyArray_NDIM (s) != 1)
     goto fail;
+  else if (PyArray_DIMS (s)[0] != s_size)
+    goto fail;
+
   deltamat = PyArray_FROM_OTF (arg2, NPY_DOUBLE, NPY_IN_ARRAY);
   if ((deltamat == NULL) || (PyArray_NDIM (deltamat) != 1))
     goto fail;
+
   gammamat = PyArray_FROM_OTF (arg3, NPY_DOUBLE, NPY_IN_ARRAY);
   if ((gammamat == NULL) || (PyArray_NDIM (gammamat) != 1))
     goto fail;
+
   dtkr = PyArray_FROM_OTF (arg4, NPY_DOUBLE, NPY_IN_ARRAY);
   if ((dtkr == NULL) || (PyArray_NDIM (dtkr) != 1))
     goto fail;
 
   dsdt = PyArray_FROM_OTF (out, NPY_DOUBLE, NPY_INOUT_ARRAY);
   if ((dsdt == NULL) || (PyArray_NDIM (dsdt) != 1))
+    goto fail;
+  else if (PyArray_DIMS (dsdt)[0] != s_size)
     goto fail;
 
   /* code that makes use of arguments */
@@ -74,6 +95,8 @@ wrap_bbgky (PyObject * self, PyObject * args)
   return Py_None;
 
 fail:
+  PyErr_SetString (PyExc_StandardError,
+		   "\n Input fail. Please check against the method's documentation");
   Py_XDECREF (workspace);
   Py_XDECREF (s);
   Py_XDECREF (deltamat);
@@ -84,9 +107,9 @@ fail:
 }
 
 static PyMethodDef ModuleMethods[] = {
-  {"bbgky", wrap_bbgky, METH_VARARGS | METH_KEYWORDS,
-   "bbgky(s, dmat, gmat, dtkr, drv_amp, N, dsdt)\n\\n\
-C code with cblas dependency that optimally computes the RHS of the bbgky dynamics. \n Call this function from python as lindblad_bbgky.bbgky(args)\n Arguments in the following order. All are either ints, doubles or 1d numpy arrays:n w\t-\t Workspace that is a Numpy array of minimum size 3*N+9*N*N\n s\t-\tNumpy array of all spins sx, sy, sz (vecs of size N) and correlations matrices (size N X N)\n \t\tflattened as [sx, sy, sz, gxx, gxy, gxz, gyx, gyy, gyz, gzx, gzy, gzz]),\n dmat\t-\t delta (cosine) matrix (NXN), flattened to 1d array,\n gmat\t-\t gamma (sine) matrix (NXN), flattened to 1d array,\n dtkr\t-\t1d array dtkr_i = Delta t + (k.r)_i,\n N\t-\tLattice size,\n\t-\t dsdt\t-\tOutput numpy array (same structure as s) "},
+  {Py_MethodName, wrap_bbgky, METH_VARARGS | METH_KEYWORDS,
+   "bbgky(s, dmat, gmat, dtkr, drv_amp, N, dsdt)\n\n\
+Extension module written using the CPython C-API.\nOptimally computes the RHS of the bbgky dynamics.\nHas cblas as dependency.\n Call this function from python as lindblad_bbgky.bbgky(args)\n Arguments in the following order. All are either ints, doubles or 1d numpy arrays:\n w\t-\tWorkspace that is a Numpy array of exact size 6*N+18*N*N\n s\t-\tNumpy array of all spins sx, sy, sz (vecs of size N) and correlations matrices (size N X N)\n \t\tflattened as [sx, sy, sz, gxx, gxy, gxz, gyx, gyy, gyz, gzx, gzy, gzz]) and exact size 3*N+9*N*N,\n dmat\t-\tdelta (cosine) matrix (NXN), flattened to 1d array,\n gmat\t-\tgamma (sine) matrix (NXN), flattened to 1d array,\n dtkr\t-\t1d array dtkr_i = Delta t + (k.r)_i,\n N\t-\tLattice size,\n dsdt\t-\tOutput numpy array (same shape as s) "},
   {NULL, NULL, 0, NULL},
 };
 
