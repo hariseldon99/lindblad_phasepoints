@@ -190,7 +190,7 @@ class BBGKY_System_Eqm:
 	   
       if self.verbose and pbar_avail and self.comm.rank == root:
 	  bar.update(0)
-   
+      bas_pos = 0
       for tpl, mth_atom in np.ndenumerate(self.local_atoms):
 	(atom_count,) = tpl
 	(m, coord_m) = mth_atom.index, mth_atom.coords
@@ -211,6 +211,7 @@ class BBGKY_System_Eqm:
 		atom_count * nalphas + alpha
 	      bar.update(bar_pos)
 	    localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
+            bar_pos += 1
 	    
       duplicate_comm = Intracomm(self.comm)
       alldata = [None for i in self.kvecs]

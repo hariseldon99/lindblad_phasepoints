@@ -186,8 +186,9 @@ class BBGKY_System_Noneqm:
 	    max_value=pbar_max, redirect_stdout=False)
 	   
       if self.verbose and pbar_avail and self.comm.rank == root:
-	  bar.update(0)
-   
+	  bar.update(0
+)
+      bar_pos = 0
       for tpl, mth_atom in np.ndenumerate(self.local_atoms):
 	(atom_count,) = tpl
 	(m, coord_m) = mth_atom.index, mth_atom.coords
@@ -204,10 +205,9 @@ class BBGKY_System_Noneqm:
 	    corrs_summedover_alpha[kcount] += \
 	      self.field_correlations(time_info, s_t[:,0:3*N], mth_atom)
 	    if self.verbose and pbar_avail and self.comm.rank == root:
-	      bar_pos = kcount*(self.local_atoms.size * nalphas) + \
-		atom_count * nalphas + alpha
 	      bar.update(bar_pos)
 	    localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
+            bar_pos += 1
 	    
       duplicate_comm = Intracomm(self.comm)
       alldata = [None for i in self.kvecs]

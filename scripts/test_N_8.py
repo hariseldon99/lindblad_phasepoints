@@ -42,8 +42,8 @@ def run_lb():
   
   #Prepare the times
   t0 = 0.0
-  ncyc = 4.0
-  nsteps = 100
+  ncyc = 100.0
+  nsteps = 10000
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   (corrdata, distribution, atoms_info) = d.evolve(times)
