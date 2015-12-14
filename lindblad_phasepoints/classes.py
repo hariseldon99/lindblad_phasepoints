@@ -34,9 +34,8 @@ class ParamData:
 			      detuning between atomic levels and incident light.
 			      Defaults to 0.0.
        cloud_rad  =  The radius of the gas cloud of atoms. Defaults to 100.0
-       kvecs	  =  Array of 3-vectors. Each vector is a momentum of the incident laser
-		     use different angles for different orientations at which spectra 
-		     is measured. Defaults to np.array([0.0,0.0,1.0])
+       kvecs	  =  Array of 3-vectors. Each vector is a momentum of the emerging radiation
+		     field. Defaults to np.array([0.0,0.0,1.0])
        mtime	  =   Time at which the correlations are evaluated i.e. the 
 			      quantity <E^\dagger (mtime) * E(mtime+t)> where
 			      E is the electric field. Defaults to 0 ie initial correlations.
@@ -51,6 +50,8 @@ class ParamData:
       self.latsize = latsize
       self.drv_amp, self.drv_freq = amplitude, detuning
       self.cloud_rad = cloud_rad
+      #Incident laser has unit magnitude in the z-direction
+      self.kvec_incident = np.array([0.0, 0.0, 1.0])
       #Set the momenta to be unit magnitude 
       self.kvecs = \
 	kvecs/np.apply_along_axis(norm, -1, kvecs).reshape(-1,1)

@@ -20,7 +20,7 @@ try:
   mkl_avail = True
 except ImportError:
   mkl_avail = False
-
+  
 #Try to import progressbars if available
 try:
     import progressbar
@@ -48,7 +48,7 @@ class BBGKY_System_Eqm:
     precalculated objects .
     
        Usage:
-       d = BBGKY_System_Noneqm(Paramdata, MPI_COMMUNICATOR, verbose=True)
+       d = BBGKY_System_Eqm(Paramdata, MPI_COMMUNICATOR, verbose=True)
        
        Parameters:
        Paramdata 	= An instance of the class "ParamData". 
@@ -75,7 +75,8 @@ class BBGKY_System_Eqm:
     N = self.latsize
     self.mkl_avail = mkl_avail
     self.pbar_avail = pbar_avail
- 	
+    self.corr_norm = 16.0 * self.latsize
+    
     if self.comm.rank == root:
       if self.verbose:
           out = copy.copy(self)
@@ -90,6 +91,9 @@ class BBGKY_System_Eqm:
 	  print("\nDone. Minimum distance between atoms = ", self.mindist)
 	self.atoms = np.array(\
 	  [Atom(coords = c[i], index = i) for i in xrange(N)])
+	self.kr_incident = np.array([\
+	  self.kvec_incident.dot(atom_mu.coords) \
+	  for atom_mu in self.atoms])
       elif type(atoms).__module__ == np.__name__:
 	if atoms.size >= N:
 	  self.atoms = atoms[0:N]
@@ -98,14 +102,19 @@ class BBGKY_System_Eqm:
 	  sys.exit(0)
       else:
 	self.atoms = atoms
+	self.kr_incident = np.array([\
+	  self.kvec_incident.dot(atom_mu.coords) \
+	  for atom_mu in self.atoms])
     else:
       self.atoms = None
+      self.kr_incident = None
       
     #Create a workspace for mean field evaluaions
     self.workspace = np.zeros(2*(3*N+9*N*N))
     self.workspace = np.require(self.workspace, \
             dtype=np.float64, requirements=['A', 'O', 'W', 'C'])
     self.atoms = mpicomm.bcast(self.atoms, root=root)  
+    self.kr_incident = mpicomm.bcast(self.kr_incident, root=root)  
     #Scatter local copies of the atoms
     if self.comm.rank == root:
       sendbuf = np.array_split(self.atoms,mpicomm.size)
@@ -162,7 +171,7 @@ class BBGKY_System_Eqm:
     """
     Evolves the BBGKY dynamics for selected phase points
     call with bbgky(t), where t is an array of times
-    returns the "equilibrium" field correlations 
+    returns the "nonequilibrium" field correlations 
     i.e. correlations w.r.t. the initial field
     """
     N = self.latsize
@@ -182,28 +191,27 @@ class BBGKY_System_Eqm:
       if self.verbose and pbar_avail and self.comm.rank == root:
 	  bar.update(0)
    
-      for kcount in xrange(self.kvecs.shape[0]):
-	self.kvec = self.kvecs[kcount]
-	self.kr = np.array([self.kvec.dot(atom_mu.coords) \
-	      for atom_mu in self.atoms])
-	for tpl, mth_atom in np.ndenumerate(self.local_atoms):
-	  (atom_count,) = tpl
-	  (m, coord_m) = mth_atom.index, mth_atom.coords
-	  corrs_summedover_alpha = \
-	    np.zeros(time_info.size, dtype=np.complex_)
-	  for alpha in xrange(nalphas):
-	    a, c = self.initconds(alpha, m)
-	    s_t = odeint(lindblad_bbgky_pywrap, \
-		  np.concatenate((a.flatten(),c.flatten())),\
-		    time_info, args=(self,), Dfun=None)	    
-	    corrs_summedover_alpha += \
+      for tpl, mth_atom in np.ndenumerate(self.local_atoms):
+	(atom_count,) = tpl
+	(m, coord_m) = mth_atom.index, mth_atom.coords
+	corrs_summedover_alpha = \
+	  np.zeros((self.kvecs.shape[0], time_info.size), \
+	    dtype=np.complex_)
+	for alpha in xrange(nalphas):
+	  a, c = self.initconds(alpha, m)
+	  s_t = odeint(lindblad_bbgky_pywrap, \
+		np.concatenate((a.flatten(),c.flatten())),\
+		  time_info, args=(self,), Dfun=None)
+	  for kcount in xrange(self.kvecs.shape[0]):
+	    self.kvec = self.kvecs[kcount]
+	    corrs_summedover_alpha[kcount] += \
 	      self.field_correlations(time_info, s_t[:,0:3*N], mth_atom)
 	    if self.verbose and pbar_avail and self.comm.rank == root:
 	      bar_pos = kcount*(self.local_atoms.size * nalphas) + \
 		atom_count * nalphas + alpha
 	      bar.update(bar_pos)
-	  localdata[kcount][atom_count] = corrs_summedover_alpha
-	  
+	    localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
+	    
       duplicate_comm = Intracomm(self.comm)
       alldata = [None for i in self.kvecs]
       for kcount in xrange(self.kvecs.shape[0]):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from mpi4py import MPI
 import numpy as np
-import lindblad_bbgky as lbbgky
+import lindblad_bbgky as lb
 
 def lindblad_bbgky_pywrap(s, t, param):
    """
@@ -16,7 +16,7 @@ def lindblad_bbgky_pywrap(s, t, param):
    dsdt = np.zeros_like(s)
    dsdt = np.require(dsdt, dtype=np.float64, \
      requirements=['A', 'O', 'W', 'C'])
-   lbbgky.bbgky(param.workspace, s, param.deltamat.flatten(), \
-     param.gammamat.flatten(), (param.kr + param.drv_freq * t),\
-       param.drv_amp, param.latsize,dsdt)
+   lb.bbgky(param.workspace, s, param.deltamat.flatten(), \
+     param.gammamat.flatten(), (param.kr_incident + param.drv_freq * t),\
+       param.drv_amp, param.latsize, dsdt)
    return dsdt
