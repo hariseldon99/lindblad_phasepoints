@@ -184,11 +184,10 @@ class BBGKY_System_Noneqm:
 	    self.kvecs.shape[0] * self.local_atoms.size * nalphas - 1
 	  bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
 	    max_value=pbar_max, redirect_stdout=False)
-	   
+      
+      bar_pos = 0	   
       if self.verbose and pbar_avail and self.comm.rank == root:
-	  bar.update(0
-)
-      bar_pos = 0
+	  bar.update(bar_pos)
       for tpl, mth_atom in np.ndenumerate(self.local_atoms):
 	(atom_count,) = tpl
 	(m, coord_m) = mth_atom.index, mth_atom.coords

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import numpy as np
 from numpy.linalg import norm
+from scipy.spatial.distance import pdist
+
 #Try to import progressbars if available
 try:
     import progressbar

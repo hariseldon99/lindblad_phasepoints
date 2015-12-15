@@ -7,7 +7,6 @@ import operator as op
 from consts import *
 import math
 from scipy.sparse import dia_matrix
-from scipy.spatial.distance import pdist
 
 class ParamData:
     """Class that stores Hamiltonian and lattice parameters 
