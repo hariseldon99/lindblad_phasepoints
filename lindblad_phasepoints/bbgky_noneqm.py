@@ -155,9 +155,9 @@ class BBGKY_System_Noneqm:
     #Adjust the value mtime to the nearest value in the input array
     init_arg = np.abs(t_output - self.mtime).argmin()
     (m, coord_m) = atom.index, atom.coords
-    phase_m = np.exp(-1j*self.kvec.dot(coord_m))
+    phase_m = np.exp(1j*self.kvec.dot(coord_m))
     init_m = sdata[init_arg,0:N][m] + (1j) * sdata[init_arg,N:2*N][m] 
-    phases_conj = np.array([np.exp(1j*self.kvec.dot(atom.coords))\
+    phases_conj = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
       for atom in self.atoms])
     return init_m * phase_m * \
       ((sdata[:, 0:N] - (1j) * sdata[:, N:2*N]).\
