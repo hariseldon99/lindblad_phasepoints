@@ -75,7 +75,6 @@ class BBGKY_System_Eqm:
     N = self.latsize
     self.mkl_avail = mkl_avail
     self.pbar_avail = pbar_avail
-    self.corr_norm = 16.0 * self.latsize
     
     if self.comm.rank == root:
       if self.verbose:
@@ -113,18 +112,18 @@ class BBGKY_System_Eqm:
     self.workspace = np.zeros(2*(3*N+9*N*N))
     self.workspace = np.require(self.workspace, \
             dtype=np.float64, requirements=['A', 'O', 'W', 'C'])
-    self.atoms = mpicomm.bcast(self.atoms, root=root)  
-    self.kr_incident = mpicomm.bcast(self.kr_incident, root=root)  
+    self.atoms = self.comm.bcast(self.atoms, root=root)  
+    self.kr_incident = self.comm.bcast(self.kr_incident, root=root)  
     #Scatter local copies of the atoms
     if self.comm.rank == root:
-      sendbuf = np.array_split(self.atoms,mpicomm.size)
+      sendbuf = np.array_split(self.atoms,self.comm.size)
       local_size = np.array([spl.size for spl in sendbuf])
     else:
       sendbuf = None
       local_size = None
-    local_size = mpicomm.scatter(local_size, root = root)
+    local_size = self.comm.scatter(local_size, root = root)
     self.local_atoms = np.empty(local_size, dtype="float64")
-    self.local_atoms = mpicomm.scatter(sendbuf, root = root)
+    self.local_atoms = self.comm.scatter(sendbuf, root = root)
     self.deltamat = np.zeros((N,N))
     self.gammamat = np.eye(N)
     for i in xrange(N):
@@ -139,16 +138,51 @@ class BBGKY_System_Eqm:
     self.deltamat = self.deltamat + self.deltamat.T
     self.gammamat = self.gammamat + self.gammamat.T
     
-  def initconds(self, alpha, lattice_index):
+  #CHECK THIS!!!!!  
+  def initconds(self, steady_state ,alpha, lattice_index, a=None):
+    """
+    Set the 4 initial conditions in eqns 63 and 64 of writeup
+    'a' is the vector superscript of rho, can run from:
+    None, 0 (x), 1(y), 2(z)
+    """
     N = self.latsize
     m = lattice_index
+    ic = steady_state
+    if a == None:
+      ic[0:3*N][:,m] = rvecs[alpha]
+    else:
+      #Get \tilde{\rho}_{ss}
+      spins_mat = ic[0:3*N].reshape(3,N)
+      stensor = ic[3*N:].reshape(3,3,N,N)
+      #First, shift from connected correlations to bare correlations
+      spinprod = np.einsum("mi,nj->mnij",spins_mat, spins_mat)
+      stensor += spinprod
+      #stensor are the bare correlations now
+    if a in [0,1,2]:
+      #Now change to tilde
+      denr = (1.0 + spins_mat[a,m])
+      stensor = (stensor + spins_mat[a,m] * spinprod)/denr
+      spins_mat = (spins_mat + stensor[a,:,m,:])/denr
+      #Now shift back to connected correlations
+      stensor -= np.einsum("mi,nj->mnij",spins_mat, spins_mat)
+      ic = np.concatenate((spins_mat.flatten(),stensor.flatten()))
+    else:
+      ic = None
+      
+    return ic 
+  
+  def initconds_bbgkyonly(self):
+    """
+    Set all spins to [0,0,1]
+    i.e. z-polarized spins
+    """
+    N = self.latsize
     a = np.zeros((3,self.latsize))
     a[2] = np.ones(N)
-    a[:,m] = rvecs[alpha]
     c = np.zeros((3,3,self.latsize, self.latsize))
     return a, c
   
-  def field_correlations(self, t_output, sdata, atom):
+  def field_correlations(self, t_output, atom, *allsdata):
     """
     Compute the field correlations in
     times t_output wrt correlations near
@@ -158,14 +192,20 @@ class BBGKY_System_Eqm:
     #Adjust the value mtime to the nearest value in the input array
     init_arg = np.abs(t_output - self.mtime).argmin()
     (m, coord_m) = atom.index, atom.coords
-    phase_m = np.exp(1j*self.kvec.dot(coord_m))
-    init_m = sdata[init_arg,0:N][m] + (1j) * sdata[init_arg,N:2*N][m] 
-    phases_conj = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
-      for atom in self.atoms])
-    return init_m * phase_m * \
-      ((sdata[:, 0:N] - (1j) * sdata[:, N:2*N]).\
-	dot(phases_conj))
+    #DO THIS! IMPLEMENT eqn (62)
+    for sdata in allsdata:
+      pass
+    
+    return None
       
+  def get_norm(self, rho):
+    """
+    Normalizes the density matrix according to
+    eqn (65) in the writeup
+    """
+    #DO THIS!!!
+    return 1.0
+
     
   def bbgky_eqm(self, time_info):
     """
@@ -188,9 +228,27 @@ class BBGKY_System_Eqm:
 	  bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
 	    max_value=pbar_max, redirect_stdout=False)
 	   
+      bar_pos = 0
       if self.verbose and pbar_avail and self.comm.rank == root:
-	  bar.update(0)
-      bas_pos = 0
+	  bar.update(bar_pos)
+
+      #CHECK THIS!!!
+      #Set the initconds to evaluate the steady state using bare bbgky
+      #Also, get the norm from eq (65) in the writeup
+      #Let the root processor do this, then broadcast it
+      if self.comm.rank == root:
+	a, c = self.initconds_bbgkyonly()
+	s_t = odeint(lindblad_bbgky_pywrap, \
+	      np.concatenate((a.flatten(),c.flatten())),\
+		time_info, args=(self,), Dfun=None)
+	rho_ss = s_t[-1]
+	self.corr_norm = self.get_norm(rho_ss)
+      else:
+	rho_ss = None
+	self.corr_norm = None
+      rho_ss = self.comm.bcast(rho_ss, root=root)
+      self.corr_norm = self.comm.bcast(self.corr_norm, root=root)
+      
       for tpl, mth_atom in np.ndenumerate(self.local_atoms):
 	(atom_count,) = tpl
 	(m, coord_m) = mth_atom.index, mth_atom.coords
@@ -198,14 +256,32 @@ class BBGKY_System_Eqm:
 	  np.zeros((self.kvecs.shape[0], time_info.size), \
 	    dtype=np.complex_)
 	for alpha in xrange(nalphas):
-	  a, c = self.initconds(alpha, m)
-	  s_t = odeint(lindblad_bbgky_pywrap, \
-		np.concatenate((a.flatten(),c.flatten())),\
-		  time_info, args=(self,), Dfun=None)
+	  
+	  #CHECK THIS!!!
+	  #Set \rho_{ss,\not\mu}A_{\alpha\mu} at t=0
+	  s0 = self.initconds(rho_ss, alpha, m, a=None)
+	  rho_ss_A = odeint(lindblad_bbgky_pywrap, s0, time_info, \
+	    args=(self,), Dfun=None)
+	  #Set \tilde{\rho}^x_{ss,\not\mu}A_{\alpha\mu} at t=0
+	  s0 = self.initconds(rho_ss, alpha, m, a=0)
+	  rho_ss_x_A = odeint(lindblad_bbgky_pywrap, s0, time_info, \
+	    args=(self,), Dfun=None)
+	  #Set \tilde{\rho}^y_{ss,\not\mu}A_{\alpha\mu} at t=0
+	  s0 = self.initconds(rho_ss, alpha, m, a=1)
+	  rho_ss_y_A = odeint(lindblad_bbgky_pywrap, s0, time_info, \
+	    args=(self,), Dfun=None)
+	  #Set \tilde{\rho}^z_{ss,\not\mu}A_{\alpha\mu} at t=0
+	  s0 = self.initconds(rho_ss, alpha, m, a=2)
+	  rho_ss_z_A = odeint(lindblad_bbgky_pywrap, s0, time_info, \
+	    args=(self,), Dfun=None)
+	  
 	  for kcount in xrange(self.kvecs.shape[0]):
 	    self.kvec = self.kvecs[kcount]
 	    corrs_summedover_alpha[kcount] += \
-	      self.field_correlations(time_info, s_t[:,0:3*N], mth_atom)
+	      self.field_correlations(time_info,mth_atom, \
+		rho_ss[0:3*N], rho_ss_A[0:3*N], \
+		  rho_ss_x_A[0:3*N], rho_ss_y_A[0:3*N], \
+		    rho_ss_z_A[0:3*N])
 	    if self.verbose and pbar_avail and self.comm.rank == root:
 	      bar_pos = kcount*(self.local_atoms.size * nalphas) + \
 		atom_count * nalphas + alpha
@@ -219,7 +295,6 @@ class BBGKY_System_Eqm:
 	localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
 	alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
 	
-      
       if self.comm.rank == root:
 	alldata = np.array(alldata)/self.corr_norm
 	allsizes = np.zeros(self.comm.size)
