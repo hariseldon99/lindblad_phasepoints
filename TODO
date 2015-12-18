@@ -1,5 +1,6 @@
 1. Docs! Docs! Lotsa work on the docs.
 2. Do the equilibrium Spectra
 3. MemoryError for large N:
+    Initiate initial conditions and put them in the Atom objects
     Use python "shelve" module to store latest states (indexed by mu, alpha) to disk (after mpi_gather)
     Load and restart
