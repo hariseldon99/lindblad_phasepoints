@@ -5,3 +5,13 @@
         At each time step, each process evolves by one time step all the local atoms,
 	calculates the correlations, and aggregates them by mpi_reduce. This is slower
         but better suited for large lattices
+
+        Alternatively, use h5py in parallel where each atom writes 'nalpha' final states to its own
+        data frame (with index, coordinates and alpha as metadata). Then run it for small time intervals
+        and load the h5py from disk for the next run. This might be faster. You can store the initial conditions
+        inside the Atom object and instantiate them in parallel before running "evolve". Put in an option to load these
+        from hdf. For bbgky_eqm, you can store the steady state in an Atom object with a string like "steady_state" for
+        te index and None for the coords.
+       
+        Compare the above methods for a harmonic oscillator (multiple initial conditions in parallel) to see which
+        performs better
