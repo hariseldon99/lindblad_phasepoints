@@ -1,4 +1,7 @@
 1. Docs! Docs! Lotsa work on the docs.
 2. Do the equilibrium Spectra
 3. MemoryError for large N:
-   Find a way to chunk the time evolution. Not naively possible while in parallel
+	Create another python submodule with cipy.ode instead of lsode routine from scipy.odeint
+        At each time step, each process evolves by one time step all the local atoms,
+	calculates the correlations, and aggregates them by mpi_reduce. This is slower
+        but better suited for large lattices
