@@ -189,7 +189,7 @@ class BBGKY_System_Noneqm:
       bar_pos = 0	   
       if self.verbose and pbar_avail and self.comm.rank == root:
 	  bar.update(bar_pos)
-      for tpl, mth_atom in xrange(self.local_atoms.size):
+      for tpl, mth_atom in np.ndenumerate(self.local_atoms):
 	(atom_count,) = tpl
 	(m, coord_m) = mth_atom.index, mth_atom.coords
 	corrs_summedover_alpha = \
