@@ -67,7 +67,7 @@ class Atom:
   distance between 2 atoms
   """
   
-  def __init__(self, coords=np.array([0.0,0.0]), index=0, state=None):
+  def __init__(self, coords=np.array([0.0,0.0]), index=0):
       """
        Usage:
        import numpy as np
@@ -82,9 +82,11 @@ class Atom:
 		   
        index 	=  The index of the atom while being counted among others.
 			    These are counted from 0
+			    
+       Extra Member		    
        state		= The current state of the atom in the BBGKY Heirarchy
 			   This is a numpy array of size 3*N + 9*N^2, where N is
-			   the total # of atoms. Defaults to None.
+			   the total # of atoms. Defaults to nalphas array of None.
 			   
        Return value: 
        An atom object  
@@ -92,6 +94,7 @@ class Atom:
       if(coords.size == 3):
 	self.index = index
 	self.coords = coords
-	self.state = state
+	#Initialize with a blank state for each alpha
+	self.state = np.array([None for i in xrange(nalphas)])
       else:
 	raise ValueError('Incorrect 3D coordinates %d' % (coords))

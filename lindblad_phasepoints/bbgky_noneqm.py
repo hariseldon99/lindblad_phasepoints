@@ -198,7 +198,7 @@ class BBGKY_System_Noneqm:
 	for alpha in xrange(nalphas):
 	  s_t = odeint(lindblad_bbgky_pywrap, \
 	    mth_atom.state, time_info, args=(self,), Dfun=None)
-	  self.local_atoms[m].state = s_t[-1] #Update the state
+	  self.local_atoms[m].state[alpha] = s_t[-1] #Update the state
 	  for kcount in xrange(self.kvecs.shape[0]):
 	    self.kvec = self.kvecs[kcount]
 	    corrs_summedover_alpha[kcount] += \
@@ -260,7 +260,7 @@ class BBGKY_System_Noneqm:
     for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
       m = mth_atom.index
       a, c = self.initconds(alpha, m)
-      mth_atom.state = np.concatenate((a.flatten(),c.flatten()))
+      mth_atom.state[alpha] = np.concatenate((a.flatten(),c.flatten()))
     for times in times_split:
       outdata = np.vstack((outdata,self.bbgky_noneqm(times)))
      
