@@ -8,6 +8,7 @@ import numpy as np
 from scipy.integrate import odeint
 from pprint import pprint
 from numpy.linalg import norm
+from itertools import product
 
 from consts import *
 from classes import *
@@ -188,17 +189,16 @@ class BBGKY_System_Noneqm:
       bar_pos = 0	   
       if self.verbose and pbar_avail and self.comm.rank == root:
 	  bar.update(bar_pos)
-      for tpl, mth_atom in np.ndenumerate(self.local_atoms):
+      for tpl, mth_atom in xrange(self.local_atoms.size):
 	(atom_count,) = tpl
 	(m, coord_m) = mth_atom.index, mth_atom.coords
 	corrs_summedover_alpha = \
 	  np.zeros((self.kvecs.shape[0], time_info.size), \
 	    dtype=np.complex_)
 	for alpha in xrange(nalphas):
-	  a, c = self.initconds(alpha, m)
 	  s_t = odeint(lindblad_bbgky_pywrap, \
-		np.concatenate((a.flatten(),c.flatten())),\
-		  time_info, args=(self,), Dfun=None)
+	    mth_atom.state, time_info, args=(self,), Dfun=None)
+	  self.local_atoms[m].state = s_t[-1] #Update the state
 	  for kcount in xrange(self.kvecs.shape[0]):
 	    self.kvec = self.kvecs[kcount]
 	    corrs_summedover_alpha[kcount] += \
@@ -214,21 +214,9 @@ class BBGKY_System_Noneqm:
 	localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
 	alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
 	
-      
-      if self.comm.rank == root:
-	alldata = np.array(alldata)/self.corr_norm
-	allsizes = np.zeros(self.comm.size)
-	distrib_atoms = np.zeros_like(allsizes)
-      else:
-	allsizes = None
-	distrib_atoms = None
+      return alldata
 
-      distrib_atoms = \
-	self.comm.gather(self.local_atoms.size, distrib_atoms, root=0)
-      return (alldata, distrib_atoms, \
-	[atom.__dict__ for atom in self.atoms])
-
-  def evolve(self, time_info):
+  def evolve(self, time_info, nchunks=1):
     """
     This function calls the lsode 'odeint' integrator from scipy package
     to evolve all the sampled initial conditions in time. 
@@ -240,7 +228,7 @@ class BBGKY_System_Noneqm:
     
     
        Usage:
-       data = d.evolve(times)
+       data = d.evolve(times, nchunks=100)
        
        Required parameters:
        times 		=  Time information. Must be a list or numpy array 
@@ -249,7 +237,9 @@ class BBGKY_System_Noneqm:
 			   Note that the integrator method and the actual step sizes
 			   are controlled internally by the integrator. 
 			   See the relevant docs for scipy.integrate.odeint.
-
+      nchunks		=  Number of chunks. This divides "times" into nchunks 
+			      parts and runs them independently to conserve memory.
+			      Defaults to 1.
       Return value: 
       An tuple object (data, distrib, atomdata) that contains
 	data		=  A numpy array of field correlations at time wrt field at 
@@ -261,4 +251,31 @@ class BBGKY_System_Noneqm:
 	atomdata	=  A dictionary containing the indices and positions
 			   of all the atoms
     """
-    return self.bbgky_noneqm(time_info)
+    
+    #Empty list of the right shape
+    outdata = np.array([None for a in self.kvecs.shape])
+    times_split = np.split(time_info, nchunks)
+    t_sizes = np.array([t.size for t in times_split])
+    #Set the initial conditions
+    for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
+      m = mth_atom.index
+      a, c = self.initconds(alpha, m)
+      mth_atom.state = np.concatenate((a.flatten(),c.flatten()))
+    for times in times_split:
+      outdata = np.vstack((outdata,self.bbgky_noneqm(times)))
+     
+    if self.comm.rank == root:
+	alldata = np.array(alldata)/self.corr_norm
+	allsizes = np.zeros(self.comm.size)
+	distrib_atoms = np.zeros_like(allsizes)
+    else:
+	allsizes = None
+	distrib_atoms = None
+    distrib_atoms = \
+      self.comm.gather(self.local_atoms.size, distrib_atoms, root=0)
+      
+    if self.comm.rank == root:
+      return (np.delete(outdata,0,0), distrib_atoms, \
+	[atom.__dict__ for atom in self.atoms])
+    else:
+      return None
