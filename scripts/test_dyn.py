@@ -13,14 +13,14 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 5
+  lattice_size = 8
   l = lattice_size
   amp = 40.0
   det = 3.0
   rad = 3.5
-  thetas = np.array([0.0,np.pi/4.])
+  thetas = np.array([0.0,np.pi/4., np.pi/2.])
   kx = np.sin(thetas)
-  ky = np.zeros(2)
+  ky = np.zeros(3)
   kz = np.cos(thetas)
   momenta = np.vstack((kx,ky,kz)).T
 
@@ -32,23 +32,20 @@ def run_lb():
   
   #Prepare the times
   t0 = 0.0
-  ncyc = 4.0
-  nsteps = 100
+  ncyc = 10.0
+  nsteps = 1000
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
-  (corrdata, distribution, atoms_info) = d.evolve(times)
-  
-  
-  if rank == 0:
+  (corrdata, distribution, atoms_info) = d.evolve(times, nchunks=4)
+  if rank == 0:  
     print " "
     print "Data of atoms in gas:"
     print tabulate(atoms_info, headers="keys", tablefmt="fancy_grid")
     print "Distribution of atoms in grid"
     print distribution
     for (count,data) in enumerate(corrdata):
-    	freqs = np.fft.fftfreq(data.size, d=timestep)
+        freqs = np.fft.fftfreq(data.size, d=timestep)
     	spectrum = np.fft.fft(data)
-        print freqs.shape, spectrum.shape
     	s = np.array_split(spectrum,2)[0]
     	f = np.array_split(freqs,2)[0]
     	#Prepare the output files. One for each observable

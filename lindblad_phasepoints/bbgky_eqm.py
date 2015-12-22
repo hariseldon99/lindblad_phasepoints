@@ -8,6 +8,7 @@ import numpy as np
 from scipy.integrate import odeint
 from pprint import pprint
 from numpy.linalg import norm
+from itertools import product
 
 from consts import *
 from classes import *
@@ -28,7 +29,7 @@ try:
 except ImportError:
     pbar_avail = False
     
-class BBGKY_System_Eqm:
+class BBGKY_System_Noneqm:
   """
     Class that creates the BBGKY system.
     
@@ -38,7 +39,7 @@ class BBGKY_System_Eqm:
 	from phase points and execute the BBGKY dynamics where the rhs 
 	of the dynamics uses optimized C code. These methods call integrators 
 	from scipy and time-evolve all the sampled initial conditions.
-	This class is for the equilibrium spectra.
+	This class is for the non-equilibrium spectra.
   """
 
   def __init__(self, params, mpicomm, atoms=None,verbose=False):
@@ -48,7 +49,7 @@ class BBGKY_System_Eqm:
     precalculated objects .
     
        Usage:
-       d = BBGKY_System_Eqm(Paramdata, MPI_COMMUNICATOR, verbose=True)
+       d = BBGKY_System_Noneqm(Paramdata, MPI_COMMUNICATOR, verbose=True)
        
        Parameters:
        Paramdata 	= An instance of the class "ParamData". 
@@ -75,6 +76,7 @@ class BBGKY_System_Eqm:
     N = self.latsize
     self.mkl_avail = mkl_avail
     self.pbar_avail = pbar_avail
+    self.corr_norm = 16.0 * self.latsize
     
     if self.comm.rank == root:
       if self.verbose:
@@ -90,9 +92,6 @@ class BBGKY_System_Eqm:
 	  print("\nDone. Minimum distance between atoms = ", self.mindist)
 	self.atoms = np.array(\
 	  [Atom(coords = c[i], index = i) for i in xrange(N)])
-	self.kr_incident = np.array([\
-	  self.kvec_incident.dot(atom_mu.coords) \
-	  for atom_mu in self.atoms])
       elif type(atoms).__module__ == np.__name__:
 	if atoms.size >= N:
 	  self.atoms = atoms[0:N]
@@ -100,10 +99,10 @@ class BBGKY_System_Eqm:
 	  print("Error. Gas of atoms smaller than specified size")
 	  sys.exit(0)
       else:
-	self.atoms = atoms
-	self.kr_incident = np.array([\
+	self.atoms = atoms	
+      self.kr_incident = np.array([\
 	  self.kvec_incident.dot(atom_mu.coords) \
-	  for atom_mu in self.atoms])
+	  for atom_mu in self.atoms]) 
     else:
       self.atoms = None
       self.kr_incident = None
@@ -112,18 +111,18 @@ class BBGKY_System_Eqm:
     self.workspace = np.zeros(2*(3*N+9*N*N))
     self.workspace = np.require(self.workspace, \
             dtype=np.float64, requirements=['A', 'O', 'W', 'C'])
-    self.atoms = self.comm.bcast(self.atoms, root=root)  
-    self.kr_incident = self.comm.bcast(self.kr_incident, root=root)  
+    self.atoms = mpicomm.bcast(self.atoms, root=root)  
+    self.kr_incident = mpicomm.bcast(self.kr_incident, root=root)  
     #Scatter local copies of the atoms
     if self.comm.rank == root:
-      sendbuf = np.array_split(self.atoms,self.comm.size)
+      sendbuf = np.array_split(self.atoms,mpicomm.size)
       local_size = np.array([spl.size for spl in sendbuf])
     else:
       sendbuf = None
       local_size = None
-    local_size = self.comm.scatter(local_size, root = root)
+    local_size = mpicomm.scatter(local_size, root = root)
     self.local_atoms = np.empty(local_size, dtype="float64")
-    self.local_atoms = self.comm.scatter(sendbuf, root = root)
+    self.local_atoms = mpicomm.scatter(sendbuf, root = root)
     self.deltamat = np.zeros((N,N))
     self.gammamat = np.eye(N)
     for i in xrange(N):
@@ -138,51 +137,16 @@ class BBGKY_System_Eqm:
     self.deltamat = self.deltamat + self.deltamat.T
     self.gammamat = self.gammamat + self.gammamat.T
     
-  #CHECK THIS!!!!!  
-  def initconds(self, steady_state ,alpha, lattice_index, a=None):
-    """
-    Set the 4 initial conditions in eqns 63 and 64 of writeup
-    'a' is the vector superscript of rho, can run from:
-    None, 0 (x), 1(y), 2(z)
-    """
+  def initconds(self, alpha, lattice_index):
     N = self.latsize
     m = lattice_index
-    ic = steady_state
-    if a == None:
-      ic[0:3*N][:,m] = rvecs[alpha]
-    else:
-      #Get \tilde{\rho}_{ss}
-      spins_mat = ic[0:3*N].reshape(3,N)
-      stensor = ic[3*N:].reshape(3,3,N,N)
-      #First, shift from connected correlations to bare correlations
-      spinprod = np.einsum("mi,nj->mnij",spins_mat, spins_mat)
-      stensor += spinprod
-      #stensor are the bare correlations now
-    if a in [0,1,2]:
-      #Now change to tilde
-      denr = (1.0 + spins_mat[a,m])
-      stensor = (stensor + spins_mat[a,m] * spinprod)/denr
-      spins_mat = (spins_mat + stensor[a,:,m,:])/denr
-      #Now shift back to connected correlations
-      stensor -= np.einsum("mi,nj->mnij",spins_mat, spins_mat)
-      ic = np.concatenate((spins_mat.flatten(),stensor.flatten()))
-    else:
-      ic = None
-      
-    return ic 
-  
-  def initconds_bbgkyonly(self):
-    """
-    Set all spins to [0,0,1]
-    i.e. z-polarized spins
-    """
-    N = self.latsize
     a = np.zeros((3,self.latsize))
     a[2] = np.ones(N)
+    a[:,m] = rvecs[alpha]
     c = np.zeros((3,3,self.latsize, self.latsize))
     return a, c
   
-  def field_correlations(self, t_output, atom, *allsdata):
+  def field_correlations(self, t_output, sdata, atom):
     """
     Compute the field correlations in
     times t_output wrt correlations near
@@ -192,22 +156,16 @@ class BBGKY_System_Eqm:
     #Adjust the value mtime to the nearest value in the input array
     init_arg = np.abs(t_output - self.mtime).argmin()
     (m, coord_m) = atom.index, atom.coords
-    #DO THIS! IMPLEMENT eqn (62)
-    for sdata in allsdata:
-      pass
-    
-    return None
+    phase_m = np.exp(1j*self.kvec.dot(coord_m))
+    init_m = sdata[init_arg,0:N][m] + (1j) * sdata[init_arg,N:2*N][m] 
+    phases_conj = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
+      for atom in self.atoms])
+    return init_m * phase_m * \
+      ((sdata[:, 0:N] - (1j) * sdata[:, N:2*N]).\
+	dot(phases_conj))
       
-  def get_norm(self, rho):
-    """
-    Normalizes the density matrix according to
-    eqn (65) in the writeup
-    """
-    #DO THIS!!!
-    return 1.0
-
     
-  def bbgky_eqm(self, time_info):
+  def bbgky_noneqm(self, times):
     """
     Evolves the BBGKY dynamics for selected phase points
     call with bbgky(t), where t is an array of times
@@ -216,7 +174,7 @@ class BBGKY_System_Eqm:
     """
     N = self.latsize
 
-    if type(time_info).__module__ == np.__name__ :
+    if type(times).__module__ == np.__name__ :
       #An empty grid of size N X nalphas
       #Each element of this list is a dataset
       localdata = [[None for f in range(self.local_atoms.size)] \
@@ -227,88 +185,44 @@ class BBGKY_System_Eqm:
 	    self.kvecs.shape[0] * self.local_atoms.size * nalphas - 1
 	  bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
 	    max_value=pbar_max, redirect_stdout=False)
-	   
-      bar_pos = 0
+      
+      bar_pos = 0	   
       if self.verbose and pbar_avail and self.comm.rank == root:
 	  bar.update(bar_pos)
-
-      #CHECK THIS!!!
-      #Set the initconds to evaluate the steady state using bare bbgky
-      #Also, get the norm from eq (65) in the writeup
-      #Let the root processor do this, then broadcast it
-      if self.comm.rank == root:
-	a, c = self.initconds_bbgkyonly()
-	s_t = odeint(lindblad_bbgky_pywrap, \
-	      np.concatenate((a.flatten(),c.flatten())),\
-		time_info, args=(self,), Dfun=None)
-	rho_ss = s_t[-1]
-	self.corr_norm = self.get_norm(rho_ss)
-      else:
-	rho_ss = None
-	self.corr_norm = None
-      rho_ss = self.comm.bcast(rho_ss, root=root)
-      self.corr_norm = self.comm.bcast(self.corr_norm, root=root)
-      
       for tpl, mth_atom in np.ndenumerate(self.local_atoms):
 	(atom_count,) = tpl
 	(m, coord_m) = mth_atom.index, mth_atom.coords
 	corrs_summedover_alpha = \
-	  np.zeros((self.kvecs.shape[0], time_info.size), \
+	  np.zeros((self.kvecs.shape[0], times.size), \
 	    dtype=np.complex_)
 	for alpha in xrange(nalphas):
-	  
-	  #CHECK THIS!!!
-	  #Set \rho_{ss,\not\mu}A_{\alpha\mu} at t=0
-	  s0 = self.initconds(rho_ss, alpha, m, a=None)
-	  rho_ss_A = odeint(lindblad_bbgky_pywrap, s0, time_info, \
-	    args=(self,), Dfun=None)
-	  #Set \tilde{\rho}^x_{ss,\not\mu}A_{\alpha\mu} at t=0
-	  s0 = self.initconds(rho_ss, alpha, m, a=0)
-	  rho_ss_x_A = odeint(lindblad_bbgky_pywrap, s0, time_info, \
-	    args=(self,), Dfun=None)
-	  #Set \tilde{\rho}^y_{ss,\not\mu}A_{\alpha\mu} at t=0
-	  s0 = self.initconds(rho_ss, alpha, m, a=1)
-	  rho_ss_y_A = odeint(lindblad_bbgky_pywrap, s0, time_info, \
-	    args=(self,), Dfun=None)
-	  #Set \tilde{\rho}^z_{ss,\not\mu}A_{\alpha\mu} at t=0
-	  s0 = self.initconds(rho_ss, alpha, m, a=2)
-	  rho_ss_z_A = odeint(lindblad_bbgky_pywrap, s0, time_info, \
-	    args=(self,), Dfun=None)
-	  
+	  s_t = odeint(lindblad_bbgky_pywrap, \
+	    mth_atom.state[alpha], times, args=(self,), Dfun=None)
+	  #Update the final state
+	  self.local_atoms[atom_count].state[alpha] = s_t[-1] 
 	  for kcount in xrange(self.kvecs.shape[0]):
 	    self.kvec = self.kvecs[kcount]
 	    corrs_summedover_alpha[kcount] += \
-	      self.field_correlations(time_info,mth_atom, \
-		rho_ss[0:3*N], rho_ss_A[0:3*N], \
-		  rho_ss_x_A[0:3*N], rho_ss_y_A[0:3*N], \
-		    rho_ss_z_A[0:3*N])
+	      self.field_correlations(times, s_t[:,0:3*N], mth_atom)
 	    if self.verbose and pbar_avail and self.comm.rank == root:
-	      bar_pos = kcount*(self.local_atoms.size * nalphas) + \
-		atom_count * nalphas + alpha
 	      bar.update(bar_pos)
 	    localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
             bar_pos += 1
 	    
       duplicate_comm = Intracomm(self.comm)
-      alldata = [None for i in self.kvecs]
+      alldata = np.array([None for i in self.kvecs])
       for kcount in xrange(self.kvecs.shape[0]):
 	localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
-	alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
-	
+	if self.comm.size == 1:
+	  alldata[kcount] = localsum_data
+	else:
+	  alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
+	  
       if self.comm.rank == root:
-	alldata = np.array(alldata)/self.corr_norm
-	allsizes = np.zeros(self.comm.size)
-	distrib_atoms = np.zeros_like(allsizes)
-      else:
-	allsizes = None
-	distrib_atoms = None
+	alldata /= self.corr_norm
+      return alldata
 
-      distrib_atoms = \
-	self.comm.gather(self.local_atoms.size, distrib_atoms, root=0)
-      return (alldata, distrib_atoms, \
-	[atom.__dict__ for atom in self.atoms])
-
-  def evolve(self, time_info):
+  def evolve(self, time_info, nchunks=1):
     """
     This function calls the lsode 'odeint' integrator from scipy package
     to evolve all the sampled initial conditions in time. 
@@ -320,7 +234,7 @@ class BBGKY_System_Eqm:
     
     
        Usage:
-       data = d.evolve(times)
+       data = d.evolve(times, nchunks=100)
        
        Required parameters:
        times 		=  Time information. Must be a list or numpy array 
@@ -329,7 +243,9 @@ class BBGKY_System_Eqm:
 			   Note that the integrator method and the actual step sizes
 			   are controlled internally by the integrator. 
 			   See the relevant docs for scipy.integrate.odeint.
-
+      nchunks		=  Number of chunks. This divides "times" into nchunks 
+			      parts and runs them independently to conserve memory.
+			      Defaults to 1.
       Return value: 
       An tuple object (data, distrib, atomdata) that contains
 	data		=  A numpy array of field correlations at time wrt field at 
@@ -341,4 +257,36 @@ class BBGKY_System_Eqm:
 	atomdata	=  A dictionary containing the indices and positions
 			   of all the atoms
     """
-    return self.bbgky_eqm(time_info)
+    
+    #Empty list 
+    outdata = []
+    times_split = np.array_split(time_info, nchunks)
+    t_sizes = np.array([t.size for t in times_split])
+    #Set the initial conditions
+    for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
+      m = mth_atom.index
+      a, c = self.initconds(alpha, m)
+      mth_atom.state[alpha] = np.concatenate((a.flatten(),c.flatten()))
+   
+    for times in times_split:
+      outdata.append(self.bbgky_noneqm(times))
+     
+    if self.comm.rank == root:
+	allsizes = np.zeros(self.comm.size)
+	distrib_atoms = np.zeros_like(allsizes)
+    else:
+	allsizes = None
+	distrib_atoms = None
+    distrib_atoms = \
+      self.comm.gather(self.local_atoms.size, distrib_atoms, root=0)
+      
+    if self.comm.rank == root:
+      #This is an ugly hack, but it works
+      temp = np.asarray(outdata).T
+      outdata = []
+      for data in temp:
+	outdata.append(np.concatenate(tuple(data)))
+      return (outdata, distrib_atoms, \
+	[atom.__dict__ for atom in self.atoms])
+    else:
+      return (None, None, None)

@@ -165,7 +165,7 @@ class BBGKY_System_Noneqm:
 	dot(phases_conj))
       
     
-  def bbgky_noneqm(self, time_info):
+  def bbgky_noneqm(self, times):
     """
     Evolves the BBGKY dynamics for selected phase points
     call with bbgky(t), where t is an array of times
@@ -174,7 +174,7 @@ class BBGKY_System_Noneqm:
     """
     N = self.latsize
 
-    if type(time_info).__module__ == np.__name__ :
+    if type(times).__module__ == np.__name__ :
       #An empty grid of size N X nalphas
       #Each element of this list is a dataset
       localdata = [[None for f in range(self.local_atoms.size)] \
@@ -193,27 +193,33 @@ class BBGKY_System_Noneqm:
 	(atom_count,) = tpl
 	(m, coord_m) = mth_atom.index, mth_atom.coords
 	corrs_summedover_alpha = \
-	  np.zeros((self.kvecs.shape[0], time_info.size), \
+	  np.zeros((self.kvecs.shape[0], times.size), \
 	    dtype=np.complex_)
 	for alpha in xrange(nalphas):
 	  s_t = odeint(lindblad_bbgky_pywrap, \
-	    mth_atom.state[alpha], time_info, args=(self,), Dfun=None)
-	  self.local_atoms[m].state[alpha] = s_t[-1] #Update the state
+	    mth_atom.state[alpha], times, args=(self,), Dfun=None)
+	  #Update the final state
+	  self.local_atoms[atom_count].state[alpha] = s_t[-1] 
 	  for kcount in xrange(self.kvecs.shape[0]):
 	    self.kvec = self.kvecs[kcount]
 	    corrs_summedover_alpha[kcount] += \
-	      self.field_correlations(time_info, s_t[:,0:3*N], mth_atom)
+	      self.field_correlations(times, s_t[:,0:3*N], mth_atom)
 	    if self.verbose and pbar_avail and self.comm.rank == root:
 	      bar.update(bar_pos)
 	    localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
             bar_pos += 1
 	    
       duplicate_comm = Intracomm(self.comm)
-      alldata = [None for i in self.kvecs]
+      alldata = np.array([None for i in self.kvecs])
       for kcount in xrange(self.kvecs.shape[0]):
 	localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
-	alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
-	
+	if self.comm.size == 1:
+	  alldata[kcount] = localsum_data
+	else:
+	  alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
+	  
+      if self.comm.rank == root:
+	alldata /= self.corr_norm
       return alldata
 
   def evolve(self, time_info, nchunks=1):
@@ -252,20 +258,20 @@ class BBGKY_System_Noneqm:
 			   of all the atoms
     """
     
-    #Empty list of the right shape
-    outdata = np.array([None for a in self.kvecs.shape])
-    times_split = np.split(time_info, nchunks)
+    #Empty list 
+    outdata = []
+    times_split = np.array_split(time_info, nchunks)
     t_sizes = np.array([t.size for t in times_split])
     #Set the initial conditions
     for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
       m = mth_atom.index
       a, c = self.initconds(alpha, m)
       mth_atom.state[alpha] = np.concatenate((a.flatten(),c.flatten()))
+   
     for times in times_split:
-      outdata = np.vstack((outdata,self.bbgky_noneqm(times)))
+      outdata.append(self.bbgky_noneqm(times))
      
     if self.comm.rank == root:
-	alldata = np.array(alldata)/self.corr_norm
 	allsizes = np.zeros(self.comm.size)
 	distrib_atoms = np.zeros_like(allsizes)
     else:
@@ -275,7 +281,12 @@ class BBGKY_System_Noneqm:
       self.comm.gather(self.local_atoms.size, distrib_atoms, root=0)
       
     if self.comm.rank == root:
-      return (np.delete(outdata,0,0), distrib_atoms, \
+      #This is an ugly hack, but it works
+      temp = np.asarray(outdata).T
+      outdata = []
+      for data in temp:
+	outdata.append(np.concatenate(tuple(data)))
+      return (outdata, distrib_atoms, \
 	[atom.__dict__ for atom in self.atoms])
     else:
-      return None
+      return (None, None, None)
