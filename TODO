@@ -1,8 +1,3 @@
 1. Docs! Docs! Lotsa work on the docs.
 2. Do the equilibrium Spectra
-3. MemoryError for large N:
-        Expand the "evolve" wrapper function to chunk the time interval, set the initial
-        conditions, then run the bbgky function for each chunk
-        Modify the bbgky function accordingly i.e. to return the correlations and the
-        final state (either in parallel or after gathering, whichever works best)
 4. Evaluate site correlations as functions of time and dump the whole data to parallel hdf5
