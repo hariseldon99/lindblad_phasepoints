@@ -85,10 +85,8 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
   cblas_dsymm (CblasRowMajor, CblasRight, CblasUpper, 3, latsize, 1.0,
 	       deltamat, latsize, s, latsize, 0.0, mf_sp, latsize);
 
-  //REMOVE FATTY TERM FROM DIAGONAL PART OF GAMMAMAT, WHICH MUST BE UNITY
-  memcpy (mf_sm, s, (3 * latsize) * sizeof *s);
   cblas_dsymm (CblasRowMajor, CblasRight, CblasUpper, 3, latsize, 1.0,
-	       gammamat, latsize, s, latsize, -1.0, mf_sm, latsize);
+	       gammamat, latsize, s, latsize, 0.0, mf_sm, latsize);
 
   for (b = 0; b < 3; b++)
     for (k = 0; k < 3; k++)
@@ -99,13 +97,9 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		     &cmat[(k + 3 * b) * latsize * latsize], latsize, 0.0,
 		     &mf_cmatp[(k + 3 * b) * latsize * latsize], latsize);
 
-	//REMOVE FATTY TERM FROM DIAGONAL PART OF GAMMAMAT, WHICH MUST BE UNITY
-	memcpy (&mf_cmatm[(k + 3 * b) * latsize * latsize],
-		&cmat[(k + 3 * b) * latsize * latsize],
-		(latsize * latsize) * sizeof *cmat);
 	cblas_dsymm (CblasRowMajor, CblasLeft, CblasUpper, latsize, latsize,
 		     1.0, gammamat, latsize,
-		     &cmat[(k + 3 * b) * latsize * latsize], latsize, -1.0,
+		     &cmat[(k + 3 * b) * latsize * latsize], latsize, 0.0,
 		     &mf_cmatm[(k + 3 * b) * latsize * latsize], latsize);
       }
 
@@ -181,11 +175,11 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		rhs = 0.0;
 		for (b = 0; b < 3; b++)
 		  {
-		    rhs += cmat[(n + 3 * b) * latsize * latsize +
-				(j + latsize * i)] * (cos_dtkr_i * eps (0, b,
-									m) +
-						      sin_dtkr_i * eps (1, b,
-									m));
+		    rhs +=
+		      cmat[(n + 3 * b) * latsize * latsize +
+			   (j + latsize * i)] * (cos_dtkr_i * eps (0, b,
+								   m) +
+						 sin_dtkr_i * eps (1, b, m));
 		    rhs +=
 		      cmat[(b + 3 * m) * latsize * latsize +
 			   (j + latsize * i)] * (cos_dtkr_j * eps (0, b,
@@ -216,13 +210,13 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 									 0]) *
 		       eps (1, b, m)) * prod;
 		    rhs -=
-		      ((s[i + latsize * 0] * deltamat[j + latsize * i] -
-			0.5 * s[i + latsize * 1] * gammamat[j +
+		      ((s[j + latsize * 0] * deltamat[j + latsize * i] -
+			0.5 * s[j + latsize * 1] * gammamat[j +
 							    latsize * i]) *
 		       eps (0, b,
-			    m) + (s[i + latsize * 1] * deltamat[j +
+			    m) + (s[j + latsize * 1] * deltamat[j +
 								latsize * i] +
-				  0.5 * s[i + latsize * 0] * gammamat[j +
+				  0.5 * s[j + latsize * 0] * gammamat[j +
 								      latsize
 								      * i]) *
 		       eps (1, b, m)) * prod;
@@ -248,13 +242,13 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 									 0]) *
 		       eps (1, b, n)) * prod;
 		    rhs -=
-		      ((s[j + latsize * 0] * deltamat[j + latsize * i] -
-			0.5 * s[j + latsize * 1] * gammamat[j +
+		      ((s[i + latsize * 0] * deltamat[j + latsize * i] -
+			0.5 * s[i + latsize * 1] * gammamat[j +
 							    latsize * i]) *
 		       eps (0, b,
-			    n) + (s[j + latsize * 1] * deltamat[j +
+			    n) + (s[i + latsize * 1] * deltamat[j +
 								latsize * i] +
-				  0.5 * s[j + latsize * 0] * gammamat[j +
+				  0.5 * s[i + latsize * 0] * gammamat[j +
 								      latsize
 								      * i]) *
 		       eps (1, b, n)) * prod;
@@ -265,40 +259,19 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		for (b = 0; b < 3; b++)
 		  {
 		    prod = s[i + latsize * b];
-		    rhs += ((mf_cmatp[((n + 3 * 0) * latsize * latsize) +
-				      (j + latsize * i)] -
-			     0.5 *
-			     mf_cmatm[((n + 3 * 1) * latsize * latsize) +
-				      (j + latsize * i)]) * eps (0, b,
-								 m) +
-			    (mf_cmatp
-			     [((n + 3 * 1) * latsize * latsize) +
-			      (j + latsize * i)] -
-			     0.5 *
-			     mf_cmatm[((n + 3 * 0) * latsize * latsize) +
-				      (j + latsize * i)]) * eps (1, b,
-								 m)) * prod;
-		    rhs -=
-		      ((cmat
+		    rhs +=
+		      ((mf_cmatp
 			[((n + 3 * 0) * latsize * latsize) +
-			 (j + latsize * j)] * deltamat[j + latsize * i] -
-			0.5 * cmat[((n + 3 * 1) * latsize * latsize) +
-				   (j + latsize * j)] * gammamat[j +
-								 latsize *
-								 i]) * eps (0,
-									    b,
-									    m)
-		       +
-		       (cmat
+			 (j + latsize * i)] -
+			0.5 * mf_cmatm[((n + 3 * 1) * latsize * latsize) +
+				       (j + latsize * i)]) * eps (0, b,
+								  m) +
+		       (mf_cmatp
 			[((n + 3 * 1) * latsize * latsize) +
-			 (j + latsize * j)] * deltamat[j + latsize * i] -
-			0.5 * cmat[((n + 3 * 0) * latsize * latsize) +
-				   (j + latsize * j)] * gammamat[j +
-								 latsize *
-								 i]) * eps (1,
-									    b,
-									    m))
-		      * prod;
+			 (j + latsize * i)] +
+			0.5 * mf_cmatm[((n + 3 * 0) * latsize * latsize) +
+				       (j + latsize * i)]) * eps (1, b,
+								  m)) * prod;
 		  }
 		rhs_iter += rhs;
 		//RHS iterates over lines 10 and 11
@@ -307,40 +280,20 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		  {
 		    prod = s[j + latsize * b];
 
-		    rhs += ((mf_cmatp[((0 + 3 * m) * latsize * latsize) +
-				      (j + latsize * i)] -
-			     0.5 *
-			     mf_cmatm[((1 + 3 * m) * latsize * latsize) +
-				      (j + latsize * i)]) * eps (0, b,
-								 n) +
-			    (mf_cmatp
-			     [((1 + 3 * m) * latsize * latsize) +
-			      (j + latsize * i)] -
-			     0.5 *
-			     mf_cmatm[((0 + 3 * m) * latsize * latsize) +
-				      (j + latsize * i)]) * eps (1, b,
-								 n)) * prod;
-		    rhs -=
-		      ((cmat
+		    rhs +=
+		      ((mf_cmatp
 			[((0 + 3 * m) * latsize * latsize) +
-			 (i + latsize * i)] * deltamat[j + latsize * i] -
-			0.5 * cmat[((1 + 3 * m) * latsize * latsize) +
-				   (i + latsize * i)] * gammamat[j +
-								 latsize *
-								 i]) * eps (0,
-									    b,
-									    n)
-		       +
-		       (cmat
+			 (j + latsize * i)] -
+			0.5 * mf_cmatm[((1 + 3 * m) * latsize * latsize) +
+				       (j + latsize * i)]) * eps (0, b,
+								  n) +
+		       (mf_cmatp
 			[((1 + 3 * m) * latsize * latsize) +
-			 (i + latsize * i)] * deltamat[j + latsize * i] -
-			0.5 * cmat[((0 + 3 * m) * latsize * latsize) +
-				   (i + latsize * i)] * gammamat[j +
-								 latsize *
-								 i]) * eps (1,
-									    b,
-									    n))
-		      * prod;
+			 (j + latsize * i)] +
+			0.5 * mf_cmatm[((0 + 3 * m) * latsize * latsize) +
+				       (j + latsize * i)]) * eps (1, b,
+								  n)) * prod;
+
 		  }
 		rhs_iter += rhs;
 		//RHS iterates over line 12 
@@ -385,7 +338,6 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 		      prod;
 		  }
 		rhs_iter += rhs;
-		//Possible bug here!
 		//RHS iterates over line 14
 		rhs = 0.0;
 		for (b = 0; b < 3; b++)
@@ -410,7 +362,6 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 			0.5 * gammamat[j + latsize * i] * eps (0, b, m)));
 		  }
 		rhs_iter -= rhs;
-		//Possible bug here!
 		//RHS iterates over line 15
 		rhs = 0.0;
 		for (b = 0; b < 3; b++)
@@ -435,7 +386,6 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 			0.5 * gammamat[j + latsize * i] * eps (0, b, n)));
 		  }
 		rhs_iter -= rhs;
-		//Verified correct from here on out again.
 		//RHS iterates over line 16
 		rhs = 0.0;
 		for (b = 0; b < 3; b++)

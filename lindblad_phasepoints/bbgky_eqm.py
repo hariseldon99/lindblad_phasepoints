@@ -124,7 +124,7 @@ class BBGKY_System_Noneqm:
     self.local_atoms = np.empty(local_size, dtype="float64")
     self.local_atoms = mpicomm.scatter(sendbuf, root = root)
     self.deltamat = np.zeros((N,N))
-    self.gammamat = np.eye(N)
+    self.gammamat = np.zeros_like(self.deltamat)
     for i in xrange(N):
       r_i = self.atoms[i].coords
       j=i+1
