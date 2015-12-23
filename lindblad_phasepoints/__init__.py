@@ -24,7 +24,6 @@ __author__    = 'Analabha Roy'
 __credits__   = 'Lorenzo Pucci, NiTheP Stellenbosch'
 
 __all__ = ["reductions", "generate_coord", "consts", "classes", \
-  "bbgky_pywrap", "bbgky_noneqm", "bbgky_eqm"]
+  "bbgky_pywrap", "bbgky_noneqm"]
 
 from bbgky_noneqm import *
-from bbgky_eqm import *

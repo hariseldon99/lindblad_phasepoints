@@ -6,21 +6,21 @@ from mpi4py import MPI
 import sys
 import lindblad_phasepoints as lb
 from tabulate import tabulate
- 
+
 def run_lb():
   comm = MPI.COMM_WORLD
   rank = comm.Get_rank()
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 8
+  lattice_size = 5
   l = lattice_size
   amp = 40.0
   det = 3.0
   rad = 3.5
-  thetas = np.array([0.0,np.pi/4., np.pi/2.])
+  thetas = np.array([0.0,np.pi/4.])
   kx = np.sin(thetas)
-  ky = np.zeros(3)
+  ky = np.zeros(2)
   kz = np.cos(thetas)
   momenta = np.vstack((kx,ky,kz)).T
 
@@ -29,14 +29,13 @@ def run_lb():
 
   #Initiate the DTWA system with the parameters 
   d = lb.BBGKY_System_Noneqm(p, comm, verbose=True)
-  
   #Prepare the times
   t0 = 0.0
-  ncyc = 10.0
-  nsteps = 1000
+  ncyc = 1.0
+  nsteps = 10
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
-  (corrdata, distribution, atoms_info) = d.evolve(times, nchunks=4)
+  (corrdata, distribution, atoms_info) = d.evolve(times, nchunks=1)
   if rank == 0:  
     print " "
     print "Data of atoms in gas:"

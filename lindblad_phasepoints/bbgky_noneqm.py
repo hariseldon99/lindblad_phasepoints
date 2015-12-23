@@ -268,9 +268,9 @@ class BBGKY_System_Noneqm:
       a, c = self.initconds(alpha, m)
       mth_atom.state[alpha] = np.concatenate((a.flatten(),c.flatten()))
    
-    for c, times in enumerate(times_split):
+    for i, times in enumerate(times_split):
       if i < len(times_split)-1:
-	times = np.append(times, times_split[c+1])
+	times[-1] = times_split[i+1][0]
       outdata.append(self.bbgky_noneqm(times))
      
     if self.comm.rank == root:
