@@ -50,7 +50,7 @@ class ParamData:
       self.drv_amp, self.drv_freq = amplitude, detuning
       self.cloud_rad = cloud_rad
       #Incident laser has unit magnitude in the z-direction
-      self.kvec_incident = np.array([0.0, 0.0, 1.0])
+      self.kvec_incident = np.array([0.0, 0.0, -1.0])
       #Set the momenta to be unit magnitude 
       self.kvecs = \
 	kvecs/np.apply_along_axis(norm, -1, kvecs).reshape(-1,1)
