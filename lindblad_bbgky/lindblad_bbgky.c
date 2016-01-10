@@ -282,16 +282,16 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 
 		    rhs +=
 		      ((mf_cmatp
-			[((0 + 3 * m) * latsize * latsize) +
-			 (j + latsize * i)] -
-			0.5 * mf_cmatm[((1 + 3 * m) * latsize * latsize) +
-				       (j + latsize * i)]) * eps (0, b,
+			[((m + 3 * 0) * latsize * latsize) +
+			 (i + latsize * j)] -
+			0.5 * mf_cmatm[((m + 3 * 1) * latsize * latsize) +
+				       (i + latsize * j)]) * eps (0, b,
 								  n) +
 		       (mf_cmatp
-			[((1 + 3 * m) * latsize * latsize) +
-			 (j + latsize * i)] +
-			0.5 * mf_cmatm[((0 + 3 * m) * latsize * latsize) +
-				       (j + latsize * i)]) * eps (1, b,
+			[((m + 3 * 1) * latsize * latsize) +
+			 (i + latsize * j)] +
+			0.5 * mf_cmatm[((m + 3 * 0) * latsize * latsize) +
+				       (i + latsize * j)]) * eps (1, b,
 								  n)) * prod;
 
 		  }
