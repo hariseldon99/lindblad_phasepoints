@@ -17,6 +17,6 @@ def lindblad_bbgky_pywrap(s, t, param):
    dsdt = np.require(dsdt, dtype=np.float64, \
      requirements=['A', 'O', 'W', 'C'])
    lb.bbgky(param.workspace, s, param.deltamat.flatten(), \
-     param.gammamat.flatten(), (param.drv_freq * t + param.kr_incident ),\
+     param.gammamat.flatten(), (param.drv_freq * t - param.kr_incident ),\
        param.drv_amp, param.latsize, dsdt)
    return dsdt
