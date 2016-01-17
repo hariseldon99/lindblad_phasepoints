@@ -122,26 +122,30 @@ dsdgdt (double *wspace, double *s, double *deltamat, double *gammamat,
 	  rhs = 0.0;
 	  for (n = 0; n < 3; n++)
 	    {
+
+
+
 	      rhs +=
 		eps (0, n,
 		     m) * (s[i + latsize * n] * mf_sp[i + latsize * 0] +
-			   mf_cmatp[((0 + 3 * n) * latsize * latsize) +
+			   mf_cmatp[((n + 3 * 0) * latsize * latsize) +
 				    (i + latsize * i)]);
 	      rhs -=
 		0.5 * eps (0, n,
 			   m) * (s[i + latsize * n] * mf_sm[i + latsize * 1] +
-				 mf_cmatm[((1 + 3 * n) * latsize * latsize) +
+				 mf_cmatm[((n + 3 * 1) * latsize * latsize) +
 					  (i + latsize * i)]);
 	      rhs +=
 		eps (1, n,
 		     m) * (s[i + latsize * n] * mf_sp[i + latsize * 1] +
-			   mf_cmatp[((1 + 3 * n) * latsize * latsize) +
+			   mf_cmatp[((n + 3 * 1) * latsize * latsize) +
 				    (i + latsize * i)]);
 	      rhs +=
 		0.5 * eps (1, n,
 			   m) * (s[i + latsize * n] * mf_sm[i + latsize * 0] +
-				 mf_cmatm[((0 + 3 * n) * latsize * latsize) +
+				 mf_cmatm[((n + 3 * 0) * latsize * latsize) +
 					  (i + latsize * i)]);
+
 
 	    }
 	  rhs_iter += rhs;
