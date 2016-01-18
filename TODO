@@ -1,4 +1,4 @@
-0. Switch from kdevelop to codeblocks wit python plugin from github
+0. Add support for geany
 1. Docs! Docs! Lotsa work on the docs.
 2. Do the equilibrium Spectra
 4. Evaluate site correlations as functions of time and dump the whole data to parallel hdf5
