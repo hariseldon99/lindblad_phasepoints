@@ -15,7 +15,7 @@
 ##Number of nodes and procs per node.
 ##The ib at the end means infiniband. Use that or else MPI gets confused 
 ##with ethernet
-#PBS -l nodes=12:ppn=8
+#PBS -l select=2:ncpus=8:mpiprocs=8,place=scatter
 #########################################################################
 ##Send me email when my job aborts, begins, or ends
 #PBS -m ea
@@ -24,7 +24,6 @@
 SCRIPT="./N_100.py"
 
 cd $PBS_O_WORKDIR
-
 
 #########################################################################
 ##Make a list of allocated nodes(cores)
@@ -39,7 +38,10 @@ NO_OF_CORES=$(cat $PBS_NODEFILE | wc -l)
 ##Now run my prog
 module load dot
 BEGINTIME=$(date +"%s")
-mpirun -np $NO_OF_CORES python -W ignore $SCRIPT 
+##Now, run the code
+/usr/lib64/openmpi/bin/mpirun -np $NO_OF_CORES \
+  --hostfile ${PBS_NODEFILE} -x LD_LIBRARY_PATH \
+      python -W ignore $SCRIPT 
 ENDTIME=$(date +"%s")
 ELAPSED_TIME=$(($ENDTIME-$BEGINTIME))
 
