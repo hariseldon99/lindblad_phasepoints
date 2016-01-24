@@ -2,6 +2,9 @@
 # Compiled python modules.
 *.pyc
 
+# Geany config files
+*.geany
+
 # Cluster filesystem data
 .nfs*
 
