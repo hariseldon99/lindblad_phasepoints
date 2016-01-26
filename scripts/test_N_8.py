@@ -25,7 +25,7 @@ def run_lb():
   momenta = np.vstack((kx,ky,kz)).T
 
   #Initiate the parameters in object
-  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=rad, mtime=0.0, kvecs=momenta)
+  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=rad, kvecs=momenta)
   
   c = np.array(\
   [[2.8905099e+00, -6.4307892e-01, -2.2003016e+00], \

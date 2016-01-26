@@ -13,7 +13,7 @@ def run_lb():
   size = comm.Get_size()
 
   #Parameters
-  lattice_size = 5
+  lattice_size = 10
   l = lattice_size
   amp = 40.0
   det = 3.0
@@ -25,17 +25,17 @@ def run_lb():
   momenta = np.vstack((kx,ky,kz)).T
 
   #Initiate the parameters in object
-  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=rad, mtime=0.0, kvecs=momenta)
+  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=rad, kvecs=momenta)
 
   #Initiate the DTWA system with the parameters 
   d = lb.BBGKY_System_Noneqm(p, comm, verbose=True)
   #Prepare the times
   t0 = 0.0
-  ncyc = 1.0
-  nsteps = 10
+  ncyc = 20.0
+  nsteps = 3000
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
-  (corrdata, distribution, atoms_info) = d.evolve(times, nchunks=1)
+  (corrdata, distribution, atoms_info) = d.evolve(times, nchunks=5)
   if rank == 0:  
     print " "
     print "Data of atoms in gas:"

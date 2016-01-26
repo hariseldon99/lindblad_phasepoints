@@ -146,18 +146,16 @@ class BBGKY_System_Noneqm:
     c = np.zeros((3,3,self.latsize, self.latsize))
     return a, c
   
-  def field_correlations(self, t_output, sdata, atom):
+  def field_correlations(self, t_output, alpha, sdata, atom):
     """
     Compute the field correlations in
     times t_output wrt correlations near
     self.mtime
     """
     N = self.latsize
-    #Adjust the value mtime to the nearest value in the input array
-    init_arg = np.abs(t_output - self.mtime).argmin()
     (m, coord_m) = atom.index, atom.coords
     phase_m = np.exp(1j*self.kvec.dot(coord_m))
-    init_m = sdata[init_arg,0:N][m] + (1j) * sdata[init_arg,N:2*N][m] 
+    init_m = atom.refstate[alpha][0:N][m] + (1j) * atom.refstate[alpha][0:N][m] 
     phases_conj = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
       for atom in self.atoms])
     return init_m * phase_m * \
@@ -203,7 +201,7 @@ class BBGKY_System_Noneqm:
 	  for kcount in xrange(self.kvecs.shape[0]):
 	    self.kvec = self.kvecs[kcount]
 	    corrs_summedover_alpha[kcount] += \
-	      self.field_correlations(times, s_t[:,0:3*N], mth_atom)
+	      self.field_correlations(times, alpha, s_t[:,0:3*N], mth_atom)
 	    if self.verbose and pbar_avail and self.comm.rank == root:
 	      bar.update(bar_pos)
 	    localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
@@ -249,7 +247,7 @@ class BBGKY_System_Noneqm:
       Return value: 
       An tuple object (data, distrib, atomdata) that contains
 	data		=  A numpy array of field correlations at time wrt field at 
-			   mtime (provided in params). The shape is (times, # of kvecs 
+			   initial time. The shape is (times, # of kvecs 
 			   provided in params) so data[j] are the correlations for 
 			   kvecs[j] at all the times provided
 	distrib		=  A numpy array where distrib[i] is the number of atoms 
@@ -257,17 +255,19 @@ class BBGKY_System_Noneqm:
 	atomdata	=  A dictionary containing the indices and positions
 			   of all the atoms
     """
-    
-    #Empty list 
+    #Initial time
+    self.mtime = time_info[0]
+    #Empty list     
     outdata = []
     times_split = np.array_split(time_info, nchunks)
     t_sizes = np.array([t.size for t in times_split])
-    #Set the initial conditions
+    #Set the initial conditions and the reference state
     for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
       m = mth_atom.index
       a, c = self.initconds(alpha, m)
+      mth_atom.refstate[alpha] = np.concatenate((a.flatten(),c.flatten()))
       mth_atom.state[alpha] = np.concatenate((a.flatten(),c.flatten()))
-   
+      
     for i, times in enumerate(times_split):
       if i < len(times_split)-1:
 	times[-1] = times_split[i+1][0]

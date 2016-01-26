@@ -15,7 +15,7 @@ class ParamData:
     """
     
     def __init__(self, latsize=11, amplitude=1.0, detuning=0.0, \
-      cloud_rad=100.0, kvecs=np.array([0.0,0.0,1.0]), mtime = 0.0):
+      cloud_rad=100.0, kvecs=np.array([0.0,0.0,1.0])):
       
       """
        Usage:
@@ -35,9 +35,6 @@ class ParamData:
        cloud_rad  =  The radius of the gas cloud of atoms. Defaults to 100.0
        kvecs	  =  Array of 3-vectors. Each vector is a momentum of the emerging radiation
 		     field. Defaults to np.array([0.0,0.0,1.0])
-       mtime	  =   Time at which the correlations are evaluated i.e. the 
-			      quantity <E^\dagger (mtime) * E(mtime+t)> where
-			      E is the electric field. Defaults to 0 ie initial correlations.
 
        Return value: 
        An object that stores all the parameters above. 
@@ -57,7 +54,6 @@ class ParamData:
       self.cloud_density = \
 	self.latsize/((4./3.) * np.pi * pow(self.cloud_rad,3.0))
       self.intpt_spacing = 0.5/pow(self.cloud_density,1./3.)
-      self.mtime = mtime
 
 class Atom:
   """
@@ -94,6 +90,10 @@ class Atom:
       if(coords.size == 3):
 	self.index = index
 	self.coords = coords
+	#Initialize with a blank reference state
+	#This state will be the global initial state for noneqm spectra
+	#This state will be the steady state for eqm spectra
+	self.refstate = np.array([None for i in xrange(nalphas)])
 	#Initialize with a blank state for each alpha
 	self.state = np.array([None for i in xrange(nalphas)])
       else:
