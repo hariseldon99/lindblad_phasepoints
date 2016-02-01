@@ -286,8 +286,8 @@ class BBGKY_System_Eqm:
       #Applying the 'tilde' transformation in Eq 59 of Lorenzo's writeup
       mth_atom.state[alpha][1] = np.zeros_like(self.steady_state)
       mth_atom.state[alpha][1][0:3*N] = self.steady_state[0:3*N] + self.steady_state[3*N].reshape(3,3,N,N)[0,:,m,:]
-	  mth_atom.state[alpha][1]/= 1.0 + self.steady_state[0:3*N].reshape(3,N)[0,m]
-	  #Tracing out single particle terms
+      mth_atom.state[alpha][1]/= 1.0 + self.steady_state[0:3*N].reshape(3,N)[0,m]
+      #Tracing out single particle terms
       mth_atom.state[alpha][1][0:3*N].reshape(3,N)[:,m] = rvecs[alpha]
       #Tracing out 2 particle terms
       mth_atom.state[alpha][1][3*N:].reshape(3,3,N,N)[:,:,np.full(N,m),range(N)] = 0.0
