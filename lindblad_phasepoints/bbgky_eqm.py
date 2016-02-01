@@ -262,6 +262,9 @@ class BBGKY_System_Eqm:
 		r.set_initial_value(initstate, steady_state_init_time).set_f_params(self)
 		while r.successful() and r.t < steady_state_final_time:
 			self.steady_state = r.integrate(r.t+steady_state_dt)
+                #Disconnect the correlations in the steady_state 
+                #i.e. store s^{ab}_{ij} instead of g^{ab}_{ij}
+                self.steady_state[3*N:].reshape(3,3,N,N) + np.einsum("ai,bj->abij",self.steady_state[0:3*N].reshape(3,N), self.steady_state[0:3*N].reshape(3,N)) 
 	else:
 		self.steady_state = None
 	self.steady_state = self.comm.bcast(self.steady_state, root=0)  
@@ -273,7 +276,7 @@ class BBGKY_System_Eqm:
       #This is gonna have 4 states each as per method 3 in Lorenzo's writeup
       mth_atom.state[alpha] = [None, None, None, None]
       
-      #Eq 64 in Lorenzo's writeup
+      #Eq 65 in Lorenzo's writeup
       mth_atom.state[alpha][0] = self.steady_state
       #Tracing out single particle terms
       mth_atom.state[alpha][0][0:3*N].reshape(3,N)[:,m] = rvecs[alpha]
@@ -282,10 +285,11 @@ class BBGKY_System_Eqm:
       mth_atom.state[alpha][0][3*N:].reshape(3,3,N,N)[:,:,range(N), np.full(N,m)] = 0.0
 
       
-      #Eq 63 in lorenzo's writeup for a = 'x'
-      #Applying the 'tilde' transformation in Eq 59 of Lorenzo's writeup
+      #Eq 64 in lorenzo's writeup for a = 'x'
+      #Applying the 'tilde' transformation in Eq 60 of Lorenzo's writeup
       mth_atom.state[alpha][1] = np.zeros_like(self.steady_state)
       mth_atom.state[alpha][1][0:3*N] = self.steady_state[0:3*N] + self.steady_state[3*N].reshape(3,3,N,N)[0,:,m,:]
+      #APPLY TILDE TRANSFORMATION IN EQ 61. FINISH USING EQ 17.
       mth_atom.state[alpha][1]/= 1.0 + self.steady_state[0:3*N].reshape(3,N)[0,m]
       #Tracing out single particle terms
       mth_atom.state[alpha][1][0:3*N].reshape(3,N)[:,m] = rvecs[alpha]
@@ -294,6 +298,7 @@ class BBGKY_System_Eqm:
       mth_atom.state[alpha][1][3*N:].reshape(3,3,N,N)[:,:,range(N), np.full(N,m)] = 0.0
 	  
 	  #SIMILARLY DO EQ 63 FOR a= y and z
+          #PUT THE TRACE-OUTS IN A SEPARATE FUNCTION, SINCE THEY'RE ALL THE FRIGGIN' SAME
 	  #ALSO CALCULATE AND STORE THE NORMS
 	 
       mth_atom.refstate[alpha] = rvecs[alpha]
