@@ -91,8 +91,8 @@ class Atom:
 	self.index = index
 	self.coords = coords
 	#Initialize with a blank reference state
-	#This state will be the global initial state for noneqm spectra
-	#This state will be the steady state for eqm spectra
+	#These states will be the local initial state for noneqm spectra
+	#These states will be just the r_alphas for eqm spectra
 	self.refstate = np.array([None for i in xrange(nalphas)])
 	#Initialize with a blank state for each alpha
 	self.state = np.array([None for i in xrange(nalphas)])

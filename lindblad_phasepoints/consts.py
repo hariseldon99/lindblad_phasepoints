@@ -37,3 +37,11 @@ rvecs = array([[1., 1., 1.],
 
 #Maximum number of points
 bigsize = 100000
+
+#Steady state init and final times
+steady_state_init_time = 0.0
+steady_state_final_time = 15.0
+steady_state_nsteps = 1000
+steady_state_dt = (steady_state_final_time - steady_state_init_time)
+steady_state_dt /= (steady_state_nsteps - 1.0)
+int_method = 'lsoda'

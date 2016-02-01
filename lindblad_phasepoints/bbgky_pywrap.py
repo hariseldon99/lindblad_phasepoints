@@ -20,3 +20,8 @@ def lindblad_bbgky_pywrap(s, t, param):
      param.gammamat.flatten(), (param.drv_freq * t - param.kr_incident ),\
        param.drv_amp, param.latsize, dsdt)
    return dsdt
+
+#The arguments for ode are switched  from those in odeint
+def lindblad_bbgky_pywrap_ode(t, s, param):
+	
+   return lindblad_bbgky_pywrap(s, t, param)
