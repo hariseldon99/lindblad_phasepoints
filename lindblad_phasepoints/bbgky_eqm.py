@@ -264,11 +264,14 @@ class BBGKY_System_Eqm:
 			self.steady_state = r.integrate(r.t+steady_state_dt)
                 #Disconnect the correlations in the steady_state 
                 #i.e. store s^{ab}_{ij} instead of g^{ab}_{ij}
-                self.steady_state[3*N:].reshape(3,3,N,N) + np.einsum("ai,bj->abij",self.steady_state[0:3*N].reshape(3,N), self.steady_state[0:3*N].reshape(3,N)) 
+                self.steady_state_disc = self.steady_state[3*N:].reshape(3,3,N,N) +\
+                        np.einsum("ai,bj->abij",self.steady_state[0:3*N].reshape(3,N),\
+                            self.steady_state[0:3*N].reshape(3,N)) 
 	else:
 		self.steady_state = None
-	self.steady_state = self.comm.bcast(self.steady_state, root=0)  
-	 
+                self.steady_state_disc = None
+	self.steady_state = self.comm.bcast(self.steady_state, root=root)  
+	self.steady_state_disc = self.comm.bcast(self.steady_state_disc, root=root) 
     #Set the initial conditions and the reference states
     for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
       m = mth_atom.index
@@ -299,7 +302,7 @@ class BBGKY_System_Eqm:
 	  
 	  #SIMILARLY DO EQ 63 FOR a= y and z
           #PUT THE TRACE-OUTS IN A SEPARATE FUNCTION, SINCE THEY'RE ALL THE FRIGGIN' SAME
-	  #ALSO CALCULATE AND STORE THE NORMS
+          #DON'T FORGET TO "RECONNECT" THE DISCONNECTED CORRELATIONS
 	 
       mth_atom.refstate[alpha] = rvecs[alpha]
       
