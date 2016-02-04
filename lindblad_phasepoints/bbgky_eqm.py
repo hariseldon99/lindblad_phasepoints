@@ -136,7 +136,72 @@ class BBGKY_System_Eqm:
 	j+=1
     self.deltamat = self.deltamat + self.deltamat.T
     self.gammamat = self.gammamat + self.gammamat.T
+    
+  def disconnect(self,state):
+	  """
+	  Disconnect the correlations in a state 
+	  i.e. store s^{ab}_{ij} instead of g^{ab}_{ij}
+	  """
+	  N = self.latsize
+	  state[3*N:] = (state[3*N:].reshape(3,3,N,N) + \
+		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\ 
+			state[0:3*N].reshape(3,N))).flatten()
+			
+  def reconnect(self,state):
+	  """
+	  Reconnect the correlations in a disconnected state 
+	  i.e. store g^{ab}_{ij} instead of s^{ab}_{ij}
+	  """
+	  N = self.latsize
+	  state[3*N:] = (state[3*N:].reshape(3,3,N,N) - \
+		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\ 
+			state[0:3*N].reshape(3,N))).flatten()
+			 
+  def traceout_1p (self, state, m, alpha):
+	  """
+	  Trace out all 1-particle operators in state
+	  except for the mth, and substitute with 
+	  the alpha^th phase point operator
+	  """
+	  N = self.latsize
+	  state[0:3*N].reshape(3,N)[:,m] = rvecs[alpha]
+	  
+  def traceout_2p (self, state, m, alpha):
+	  """
+	  Trace out all 2-particle operators in state
+	  except for the mth, and substitute with 
+	  the alpha^th phase point operator
+	  """
+	  N = self.latsize
+      state[3*N:].reshape(3,3,N,N)[:,:,np.full(N,m),range(N)] = 0.0
+      state[3*N:].reshape(3,3,N,N)[:,:,range(N), np.full(N,m)] = 0.0 	  				
   
+  def tilde_trans (self, state, a, m):
+	  """
+	  Returns the tilde transformed state as defined in Eq 60-61 of 
+	  Lorenzo's writeup 
+	  a = x,y,z i.e. 0,1,2
+	  """
+	  N = self.latsize
+	  state_1p = state[0:3*N].reshape(3,N)
+	  state_2p = state[3*N:].reshape(3,3,N,N)
+	  newstate_1p = state_1p
+	  newstate_2p = state_2p
+	  denr = 1.0 + state_1p[a,m]
+	  #This is eq 60
+	  newstate_1p += state_2p[a,:,m,:]
+	  newstate_1p/= denr
+	  #CHECK THIS!!!
+	  #From Eq 17 truncating LHS to 0
+	  #This is eq 61
+	  newstate_2p += state_1p[a,m] * state_2p
+	  newstate_2p += np.einsum("bn,cg->bcng", state_1p, state_2p[a,:,m,:])
+	  newstate_2p += np.einsum("cg,bn->bcng",state_1p, state_2p[a,:,m,:])
+	  newstate_2p += state_1p[a,m] * np.einsum("bn,cg->bcng",state_1p, state_1p)
+	  newstate_2p /= denr
+	  return np.concatenate((newstate_1p.flatten(), \
+		newstate_2p.flatten()))
+	  
   def field_correlations(self, t_output, alpha, sdata, atom):
     """
     Compute the field correlations in
@@ -145,9 +210,7 @@ class BBGKY_System_Eqm:
     """
     N = self.latsize
     (m, coord_m) = atom.index, atom.coords
-    #DO EQUATION 62 HERE
-
-      
+    #DO EQUATION 62 HERE	      
     
   def bbgky_noneqm(self, times):
     """
@@ -262,16 +325,14 @@ class BBGKY_System_Eqm:
 		r.set_initial_value(initstate, steady_state_init_time).set_f_params(self)
 		while r.successful() and r.t < steady_state_final_time:
 			self.steady_state = r.integrate(r.t+steady_state_dt)
-                #Disconnect the correlations in the steady_state 
-                #i.e. store s^{ab}_{ij} instead of g^{ab}_{ij}
-                self.steady_state_disc = self.steady_state[3*N:].reshape(3,3,N,N) +\
-                        np.einsum("ai,bj->abij",self.steady_state[0:3*N].reshape(3,N),\
-                            self.steady_state[0:3*N].reshape(3,N)) 
 	else:
 		self.steady_state = None
-                self.steady_state_disc = None
-	self.steady_state = self.comm.bcast(self.steady_state, root=root)  
-	self.steady_state_disc = self.comm.bcast(self.steady_state_disc, root=root) 
+	
+	#First disconnect, then broadcast
+	if self.comm.rank == root:
+		self.disconnect(self.steady_state)	
+	self.steady_state = self.comm.bcast(self.steady_state, root=root) 
+	 
     #Set the initial conditions and the reference states
     for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
       m = mth_atom.index
@@ -279,33 +340,38 @@ class BBGKY_System_Eqm:
       #This is gonna have 4 states each as per method 3 in Lorenzo's writeup
       mth_atom.state[alpha] = [None, None, None, None]
       
-      #Eq 65 in Lorenzo's writeup
+      #Eq 64 in lorenzo's writeup for a = xyz or 012
       mth_atom.state[alpha][0] = self.steady_state
-      #Tracing out single particle terms
-      mth_atom.state[alpha][0][0:3*N].reshape(3,N)[:,m] = rvecs[alpha]
-      #Tracing out 2 particle terms
-      mth_atom.state[alpha][0][3*N:].reshape(3,3,N,N)[:,:,np.full(N,m),range(N)] = 0.0
-      mth_atom.state[alpha][0][3*N:].reshape(3,3,N,N)[:,:,range(N), np.full(N,m)] = 0.0
-
-      
-      #Eq 64 in lorenzo's writeup for a = 'x'
-      #Applying the 'tilde' transformation in Eq 60 of Lorenzo's writeup
-      mth_atom.state[alpha][1] = np.zeros_like(self.steady_state)
-      mth_atom.state[alpha][1][0:3*N] = self.steady_state[0:3*N] + self.steady_state[3*N].reshape(3,3,N,N)[0,:,m,:]
-      #APPLY TILDE TRANSFORMATION IN EQ 61. FINISH USING EQ 17.
-      mth_atom.state[alpha][1]/= 1.0 + self.steady_state[0:3*N].reshape(3,N)[0,m]
-      #Tracing out single particle terms
-      mth_atom.state[alpha][1][0:3*N].reshape(3,N)[:,m] = rvecs[alpha]
-      #Tracing out 2 particle terms
-      mth_atom.state[alpha][1][3*N:].reshape(3,3,N,N)[:,:,np.full(N,m),range(N)] = 0.0
-      mth_atom.state[alpha][1][3*N:].reshape(3,3,N,N)[:,:,range(N), np.full(N,m)] = 0.0
+      self.tilde_trans(mth_atom.state[alpha][0],0,m)
+      self.traceout_1p(mth_atom.state[alpha][0], m, alpha)
+	  self.traceout_2p(mth_atom.state[alpha][0], m, alpha)
+	  self.reconnect(mth_atom.state[alpha][0])
 	  
-	  #SIMILARLY DO EQ 63 FOR a= y and z
-          #PUT THE TRACE-OUTS IN A SEPARATE FUNCTION, SINCE THEY'RE ALL THE FRIGGIN' SAME
-          #DON'T FORGET TO "RECONNECT" THE DISCONNECTED CORRELATIONS
-	 
+	  mth_atom.state[alpha][1] = self.steady_state
+      self.tilde_trans(mth_atom.state[alpha][1],1,m)
+      self.traceout_1p(mth_atom.state[alpha][1], m, alpha)
+	  self.traceout_2p(mth_atom.state[alpha][1], m, alpha)
+	  self.reconnect(mth_atom.state[alpha][1])
+	  
+	  mth_atom.state[alpha][0] = self.steady_state
+      self.tilde_trans(mth_atom.state[alpha][2],2,m)
+      self.traceout_1p(mth_atom.state[alpha][2], m, alpha)
+	  self.traceout_2p(mth_atom.state[alpha][2], m, alpha)
+	  self.reconnect(mth_atom.state[alpha][2])
+	  
+	  #Eq 65 in Lorenzo's writeup:
+      mth_atom.state[alpha][3] = self.steady_state
+      self.traceout_1p(mth_atom.state[alpha][3], m, alpha)
+      self.traceout_2p(mth_atom.state[alpha][3], m, alpha)
+      self.reconnect(mth_atom.state[alpha][3])
+	        
       mth_atom.refstate[alpha] = rvecs[alpha]
-      
+    
+    #Reconnect steady state, then re-broadcast  
+    if self.comm.rank == root:
+		self.reconnect(self.steady_state)
+	self.steady_state = self.comm.bcast(self.steady_state, root=root) 	
+  
     for i, times in enumerate(times_split):
       if i < len(times_split)-1:
 	times[-1] = times_split[i+1][0]
