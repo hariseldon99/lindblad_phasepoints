@@ -178,31 +178,33 @@ class BBGKY_System_Eqm:
   
   def tilde_trans (self, state, a, m):
 	  """
-	  Returns the tilde transformed state as defined in Eq 60-61 of 
+	  Tilde transforms the input state as defined in Eq 60-61 of 
 	  Lorenzo's writeup 
+	  This is always done on a disconnected state
 	  a = x,y,z i.e. 0,1,2
 	  """
 	  N = self.latsize
 	  state_1p = state[0:3*N].reshape(3,N)
 	  state_2p = state[3*N:].reshape(3,3,N,N)
+	  #reconnect the disconnected correlators
+	  state_2p_conn = state_2p - np.einsum("am,bn->abmn",state_1p,state_1p)
 	  newstate_1p = state_1p
 	  newstate_2p = state_2p
 	  denr = 1.0 + state_1p[a,m]
 	  #This is eq 60
 	  newstate_1p += state_2p[a,:,m,:]
 	  newstate_1p/= denr
-	  #CHECK THIS!!!
 	  #From Eq 17 truncating LHS to 0
+	  state_3p = np.einsum("am,bcng->abcmng",state_1p, state2p_conn)
+	  state_3p += np.einsum("bn,acmg->abcmng",state_1p, state2p_conn)
+	  state_3p += np.einsum("cg,abmn->abcmng",state_1p, state2p_conn)
+	  state_3p += np.einsum("am,bn,cg->abcmng",state_1p,state_1p,state_1p)
 	  #This is eq 61
-	  newstate_2p += state_1p[a,m] * state_2p
-	  newstate_2p += np.einsum("bn,cg->bcng", state_1p, state_2p[a,:,m,:])
-	  newstate_2p += np.einsum("cg,bn->bcng",state_1p, state_2p[a,:,m,:])
-	  newstate_2p += state_1p[a,m] * np.einsum("bn,cg->bcng",state_1p, state_1p)
+	  newstate_2p += state_3p
 	  newstate_2p /= denr
-	  return np.concatenate((newstate_1p.flatten(), \
-		newstate_2p.flatten()))
+	  state = np.concatenate((newstate_1p.flatten(), newstate_2p.flatten()))
 	  
-  def field_correlations(self, t_output, alpha, sdata, atom):
+  def field_correlations(self, t_output, alpha, r_t, atom):
     """
     Compute the field correlations in
     times t_output wrt correlations near
@@ -210,7 +212,7 @@ class BBGKY_System_Eqm:
     """
     N = self.latsize
     (m, coord_m) = atom.index, atom.coords
-    #DO EQUATION 62 HERE	      
+    #DO EQUATION 63 HERE	      
     
   def bbgky_noneqm(self, times):
     """
@@ -220,6 +222,7 @@ class BBGKY_System_Eqm:
     i.e. correlations w.r.t. the final steady state
     """
     N = self.latsize
+    r_t = [None, None, None, None]
 
     if type(times).__module__ == np.__name__ :
       #An empty grid of size N X nalphas
@@ -232,7 +235,6 @@ class BBGKY_System_Eqm:
 	    self.kvecs.shape[0] * self.local_atoms.size * nalphas - 1
 	  bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
 	    max_value=pbar_max, redirect_stdout=False)
-      
       bar_pos = 0	   
       if self.verbose and pbar_avail and self.comm.rank == root:
 	  bar.update(bar_pos)
@@ -243,15 +245,23 @@ class BBGKY_System_Eqm:
 	  np.zeros((self.kvecs.shape[0], times.size), \
 	    dtype=np.complex_)
 	for alpha in xrange(nalphas):
-	  #CHANGE THIS TO 4 EVOLUTIONS AND UPDATES!!
-	  s_t = odeint(lindblad_bbgky_pywrap, \
-	    mth_atom.state[alpha], times, args=(self,), Dfun=None)
+	  r_t[0] = odeint(lindblad_bbgky_pywrap, \
+	    mth_atom.state[alpha][0], times, args=(self,), Dfun=None)
+	  r_t[1] = odeint(lindblad_bbgky_pywrap, \
+	    mth_atom.state[alpha][1], times, args=(self,), Dfun=None)
+	  r_t[2] = odeint(lindblad_bbgky_pywrap, \
+	    mth_atom.state[alpha][2], times, args=(self,), Dfun=None)
+	  r_t[3] = odeint(lindblad_bbgky_pywrap, \
+	    mth_atom.state[alpha][3], times, args=(self,), Dfun=None)      
 	  #Update the final state
-	  self.local_atoms[atom_count].state[alpha] = s_t[-1] 
+	  self.local_atoms[atom_count].state[alpha][0] = r_t[0][-1] 
+	  self.local_atoms[atom_count].state[alpha][1] = r_t[1][-1] 
+	  self.local_atoms[atom_count].state[alpha][2] = r_t[2][-1] 
+	  self.local_atoms[atom_count].state[alpha][3] = r_t[3][-1] 
 	  for kcount in xrange(self.kvecs.shape[0]):
 	    self.kvec = self.kvecs[kcount]
 	    corrs_summedover_alpha[kcount] += \
-	      self.field_correlations(times, alpha, s_t[:,0:3*N], mth_atom)
+	      self.field_correlations(times, alpha, r_t, mth_atom)
 	    if self.verbose and pbar_avail and self.comm.rank == root:
 	      bar.update(bar_pos)
 	    localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
@@ -353,7 +363,7 @@ class BBGKY_System_Eqm:
 	  self.traceout_2p(mth_atom.state[alpha][1], m, alpha)
 	  self.reconnect(mth_atom.state[alpha][1])
 	  
-	  mth_atom.state[alpha][0] = self.steady_state
+	  mth_atom.state[alpha][2] = self.steady_state
       self.tilde_trans(mth_atom.state[alpha][2],2,m)
       self.traceout_1p(mth_atom.state[alpha][2], m, alpha)
 	  self.traceout_2p(mth_atom.state[alpha][2], m, alpha)
