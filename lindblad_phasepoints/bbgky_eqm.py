@@ -144,8 +144,7 @@ class BBGKY_System_Eqm:
 	  """
 	  N = self.latsize
 	  state[3*N:] = (state[3*N:].reshape(3,3,N,N) + \
-		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\ 
-			state[0:3*N].reshape(3,N))).flatten()
+		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N), state[0:3*N].reshape(3,N))).flatten()
 			
   def reconnect(self,state):
 	  """
@@ -154,8 +153,7 @@ class BBGKY_System_Eqm:
 	  """
 	  N = self.latsize
 	  state[3*N:] = (state[3*N:].reshape(3,3,N,N) - \
-		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\ 
-			state[0:3*N].reshape(3,N))).flatten()
+		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N), state[0:3*N].reshape(3,N))).flatten()
 			 
   def traceout_1p (self, state, m, alpha):
 	  """
@@ -173,8 +171,8 @@ class BBGKY_System_Eqm:
 	  the alpha^th phase point operator
 	  """
 	  N = self.latsize
-      state[3*N:].reshape(3,3,N,N)[:,:,np.full(N,m),range(N)] = 0.0
-      state[3*N:].reshape(3,3,N,N)[:,:,range(N), np.full(N,m)] = 0.0 	  				
+	  state[3*N:].reshape(3,3,N,N)[:,:,np.full(N,m),range(N)] = 0.0
+	  state[3*N:].reshape(3,3,N,N)[:,:,range(N), np.full(N,m)] = 0.0 	  				
   
   def tilde_trans (self, state, a, m):
 	  """
@@ -292,14 +290,15 @@ class BBGKY_System_Eqm:
       alldata = np.array([None for i in self.kvecs])
       for kcount in xrange(self.kvecs.shape[0]):
 		  localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
-	if self.comm.size == 1:
-	  alldata[kcount] = localsum_data
-	else:
-	  alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
+	
+    if self.comm.size == 1:
+                  alldata[kcount] = localsum_data
+    else:
+                  alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
 	  
-      if self.comm.rank == root:
-	alldata /= self.corr_norm
-      return alldata
+    if self.comm.rank == root:
+        alldata /= self.corr_norm
+    return alldata
 
   def evolve(self, time_info, nchunks=1):
     """
@@ -343,10 +342,10 @@ class BBGKY_System_Eqm:
     outdata = []
     times_split = np.array_split(time_info, nchunks)
     t_sizes = np.array([t.size for t in times_split])
-	#The refstate is the final steady state after a long time,
-	#internally set in "consts.py"
-	#Only have root do this, then broadcast
-	if self.comm.rank == root:  
+    #The refstate is the final steady state after a long time,
+    #internally set in "consts.py"
+    #Only have root do this, then broadcast
+    if self.comm.rank == root:  
 		a = np.zeros((3,self.latsize))
 		a[2] = np.ones(self.latsize)
 		c = np.zeros((3,3,self.latsize, self.latsize))
@@ -356,13 +355,13 @@ class BBGKY_System_Eqm:
 		r.set_initial_value(initstate, steady_state_init_time).set_f_params(self)
 		while r.successful() and r.t < steady_state_final_time:
 			self.steady_state = r.integrate(r.t+steady_state_dt)
-	else:
+    else:
 		self.steady_state = None
 	
-	#First disconnect, then broadcast
-	if self.comm.rank == root:
+    #First disconnect, then broadcast
+    if self.comm.rank == root:
 		self.disconnect(self.steady_state)	
-	self.steady_state = self.comm.bcast(self.steady_state, root=root) 
+	        self.steady_state = self.comm.bcast(self.steady_state, root=root) 
 	 
     #Set the initial conditions and the reference states
     for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
@@ -375,20 +374,20 @@ class BBGKY_System_Eqm:
       mth_atom.state[alpha][0] = self.steady_state
       self.tilde_trans(mth_atom.state[alpha][0],0,m)
       self.traceout_1p(mth_atom.state[alpha][0], m, alpha)
-	  self.traceout_2p(mth_atom.state[alpha][0], m, alpha)
-	  self.reconnect(mth_atom.state[alpha][0])
+      self.traceout_2p(mth_atom.state[alpha][0], m, alpha)
+      self.reconnect(mth_atom.state[alpha][0])
 	  
-	  mth_atom.state[alpha][1] = self.steady_state
+      mth_atom.state[alpha][1] = self.steady_state
       self.tilde_trans(mth_atom.state[alpha][1],1,m)
       self.traceout_1p(mth_atom.state[alpha][1], m, alpha)
-	  self.traceout_2p(mth_atom.state[alpha][1], m, alpha)
-	  self.reconnect(mth_atom.state[alpha][1])
+      self.traceout_2p(mth_atom.state[alpha][1], m, alpha)
+      self.reconnect(mth_atom.state[alpha][1])
 	  
-	  mth_atom.state[alpha][2] = self.steady_state
+      mth_atom.state[alpha][2] = self.steady_state
       self.tilde_trans(mth_atom.state[alpha][2],2,m)
       self.traceout_1p(mth_atom.state[alpha][2], m, alpha)
-	  self.traceout_2p(mth_atom.state[alpha][2], m, alpha)
-	  self.reconnect(mth_atom.state[alpha][2])
+      self.traceout_2p(mth_atom.state[alpha][2], m, alpha)
+      self.reconnect(mth_atom.state[alpha][2])
 	  
 	  #Eq 65 in Lorenzo's writeup:
       mth_atom.state[alpha][3] = self.steady_state
@@ -401,7 +400,7 @@ class BBGKY_System_Eqm:
     #Reconnect steady state, then re-broadcast  
     if self.comm.rank == root:
 		self.reconnect(self.steady_state)
-	self.steady_state = self.comm.bcast(self.steady_state, root=root) 	
+    self.steady_state = self.comm.bcast(self.steady_state, root=root) 	
   
     for i, times in enumerate(times_split):
       if i < len(times_split)-1:
