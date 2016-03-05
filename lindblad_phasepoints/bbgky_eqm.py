@@ -204,16 +204,37 @@ class BBGKY_System_Eqm:
 	  newstate_2p /= denr
 	  state = np.concatenate((newstate_1p.flatten(), newstate_2p.flatten()))
 	  
-  def field_correlations(self, t_output, alpha, r_t, atom):
+  def field_correlations(self, alpha, r_t, atom):
     """
-    Compute the field correlations in
-    times t_output wrt correlations near
-    self.mtime
+    Compute the equilibrium field correlations in
+    times t_output 
     """
     N = self.latsize
     (m, coord_m) = atom.index, atom.coords
-    #DO EQUATION 63 HERE	      
-    
+    #EQUATION 63 BELOW	      
+    lx_m = rvecs[alpha][0]
+    ly_m = rvecs[alpha][1]
+    lz_m = rvecs[alpha][2]
+    sx_m = self.steady_state[0:N][m]
+    sy_m = self.steady_state[N:2*N][m]
+    sz_m = self.steady_state[2*N:3*N][m]
+    lxx_nm = r_t[0][:,0:N]
+    lyx_nm = r_t[0][:,N:2*N]
+    lyy_nm = r_t[1][:,N:2*N]
+    lxy_nm = r_t[1][:,0:N]
+    lxz_nm = r_t[2][:,0:N]
+    lyz_nm = r_t[2][:,0:2*N]
+    lx_nm = r_t[3][:,0:N]
+    ly_nm = r_t[3][:,N:2*N]
+    corrs_summedover_n = (1.+sx_m)*(1.-lz_m)*np.sum(lxx_nm-(1j)*lyx_nm, axis=1)
+    corrs_summedover_n += (1.+sy_m)*(1.-lz_m)*np.sum(lyy_nm+(1j)*lxy_nm, axis=1)
+    lxz_nm_sum = np.sum(lxz_nm, axis=1) 
+    lyz_nm_sum = np.sum(lyz_nm, axis=1)
+    corrs_summedover_n += (1.+sz_m)*(lx_m * lxz_nm_sum + ly_m * lyz_nm_sum)
+    corrs_summedover_n += (1j)*(1.+sz_m)*(ly_m * lxz_nm_sum - lx_m * lyz_nm_sum)
+    corrs_summedover_n += (lz_m-1)*((1.+1j) * np.sum(lx_nm,axis=1) + (1-1j) * np.sum(ly_nm, axis=1))
+    return corrs_summedover_n
+
   def bbgky_noneqm(self, times):
     """
     Evolves the BBGKY dynamics for selected phase points
@@ -261,7 +282,7 @@ class BBGKY_System_Eqm:
 	  for kcount in xrange(self.kvecs.shape[0]):
 	    self.kvec = self.kvecs[kcount]
 	    corrs_summedover_alpha[kcount] += \
-	      self.field_correlations(times, alpha, r_t, mth_atom)
+	      self.field_correlations(alpha, r_t, mth_atom)
 	    if self.verbose and pbar_avail and self.comm.rank == root:
 	      bar.update(bar_pos)
 	    localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
@@ -270,7 +291,7 @@ class BBGKY_System_Eqm:
       duplicate_comm = Intracomm(self.comm)
       alldata = np.array([None for i in self.kvecs])
       for kcount in xrange(self.kvecs.shape[0]):
-	localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
+		  localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
 	if self.comm.size == 1:
 	  alldata[kcount] = localsum_data
 	else:
