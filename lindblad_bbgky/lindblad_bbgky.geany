@@ -15,16 +15,14 @@ indent_mode=2
 [project]
 name=lindblad_bbgky
 base_path=/home/daneel/gitrepos/lindblad_phasepoints/lindblad_bbgky
+description=
 
 [long line marker]
 long_line_behaviour=1
 long_line_column=72
 
 [files]
-current_page=2
-FILE_NAME_0=0;C;0;EUTF-8;1;1;0;%2Fhome%2Fdaneel%2Fgitrepos%2Flindblad_phasepoints%2Flindblad_bbgky%2Fbbgkymodule.c;0;4
-FILE_NAME_1=0;C;0;EUTF-8;1;1;0;%2Fhome%2Fdaneel%2Fgitrepos%2Flindblad_phasepoints%2Flindblad_bbgky%2Flindblad_bbgky.c;0;4
-FILE_NAME_2=0;C;0;EUTF-8;1;1;0;%2Fhome%2Fdaneel%2Fgitrepos%2Flindblad_phasepoints%2Flindblad_bbgky%2Flindblad_bbgky.h;0;4
+current_page=-1
 
 [VTE]
 last_dir=/home/daneel
