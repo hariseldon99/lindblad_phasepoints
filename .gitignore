@@ -2,7 +2,7 @@
 
 # Compiled python modules.
 *.pyc
-
+*.spyder*
 # Cluster filesystem data
 .nfs*
 
