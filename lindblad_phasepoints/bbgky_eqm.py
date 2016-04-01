@@ -198,7 +198,7 @@ class BBGKY_System_Eqm:
 	  state_3p += np.einsum("cg,abmn->abcmng",state_1p, state2p_conn)
 	  state_3p += np.einsum("am,bn,cg->abcmng",state_1p,state_1p,state_1p)
 	  #This is eq 61
-	  newstate_2p += state_3p
+	  newstate_2p += state_3p[a,:,:,m,:,:]
 	  newstate_2p /= denr
 	  state = np.concatenate((newstate_1p.flatten(), newstate_2p.flatten()))
 	  
