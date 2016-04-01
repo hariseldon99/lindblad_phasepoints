@@ -290,16 +290,16 @@ class BBGKY_System_Eqm:
       duplicate_comm = Intracomm(self.comm)
       alldata = np.array([None for i in self.kvecs])
       for kcount in xrange(self.kvecs.shape[0]):
-		  localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
-	
-    if self.comm.size == 1:
-                  alldata[kcount] = localsum_data
-    else:
-                  alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
+          localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
+          if self.comm.size == 1:
+              alldata[kcount] = localsum_data
+          else:
+              alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
 	  
-    if self.comm.rank == root:
-        alldata /= self.corr_norm
-    return alldata
+      if self.comm.rank == root:
+          alldata /= self.corr_norm
+          
+      return alldata
 
   def evolve(self, time_info, nchunks=1):
     """
