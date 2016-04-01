@@ -157,22 +157,23 @@ class BBGKY_System_Eqm:
 			 
   def traceout_1p (self, state, m, alpha):
 	  """
-	  Trace out all 1-particle operators in state
-	  except for the mth, and substitute with 
+	  Trace out all the mth, and substitute with 
 	  the alpha^th phase point operator
 	  """
 	  N = self.latsize
 	  state[0:3*N].reshape(3,N)[:,m] = rvecs[alpha]
 	  
   def traceout_2p (self, state, m, alpha):
-	  """
+   """
 	  Trace out all 2-particle operators in state
 	  except for the mth, and substitute with 
 	  the alpha^th phase point operator
-	  """
-	  N = self.latsize
-	  state[3*N:].reshape(3,3,N,N)[:,:,np.full(N,m),range(N)] = 0.0
-	  state[3*N:].reshape(3,3,N,N)[:,:,range(N), np.full(N,m)] = 0.0 	  				
+        THIS NEEDS CHECKING
+   """
+   N = self.latsize
+   state[3*N:].reshape(3,3,N,N)[:,:,np.arange(m),m] = 0.0
+   state[3*N:].reshape(3,3,N,N)[:,:,m,np.arange(m+1,N)] = 0.0
+
   
   def tilde_trans (self, state, a, m):
 	  """
@@ -361,7 +362,8 @@ class BBGKY_System_Eqm:
     #First disconnect, then broadcast
     if self.comm.rank == root:
 		self.disconnect(self.steady_state)	
-	        self.steady_state = self.comm.bcast(self.steady_state, root=root) 
+	        
+    self.steady_state = self.comm.bcast(self.steady_state, root=root) 
 	 
     #Set the initial conditions and the reference states
     for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
