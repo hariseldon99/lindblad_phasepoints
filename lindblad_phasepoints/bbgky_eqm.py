@@ -185,7 +185,7 @@ class BBGKY_System_Eqm:
 	  state_1p = state[0:3*N].reshape(3,N)
 	  state_2p = state[3*N:].reshape(3,3,N,N)
 	  #reconnect the disconnected correlators
-	  state_2p_conn = state_2p - np.einsum("am,bn->abmn",state_1p,state_1p)
+	  state2p_conn = state_2p - np.einsum("am,bn->abmn",state_1p,state_1p)
 	  newstate_1p = state_1p
 	  newstate_2p = state_2p
 	  denr = 1.0 + state_1p[a,m]
