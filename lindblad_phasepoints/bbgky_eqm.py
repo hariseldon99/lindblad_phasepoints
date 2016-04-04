@@ -8,7 +8,7 @@ import numpy as np
 from scipy.integrate import ode, odeint
 from pprint import pprint
 from numpy.linalg import norm
-from itertools import product
+from itertools import product, combinations
 
 from consts import *
 from classes import *
@@ -231,7 +231,8 @@ class BBGKY_System_Eqm:
     lyz_nm_sum = np.sum(lyz_nm, axis=1)
     corrs_summedover_n += (1.+sz_m)*(lx_m * lxz_nm_sum + ly_m * lyz_nm_sum)
     corrs_summedover_n += (1j)*(1.+sz_m)*(ly_m * lxz_nm_sum - lx_m * lyz_nm_sum)
-    corrs_summedover_n += (lz_m-1)*((1.+1j) * np.sum(lx_nm,axis=1) + (1-1j) * np.sum(ly_nm, axis=1))
+    corrs_summedover_n += (lz_m-1)*((1.+1j) * np.sum(lx_nm,axis=1) +\
+        (1-1j) * np.sum(ly_nm, axis=1))        
     return corrs_summedover_n
 
   def bbgky_noneqm(self, times):
@@ -243,7 +244,29 @@ class BBGKY_System_Eqm:
     """
     N = self.latsize
     r_t = [None, None, None, None]
-
+    #Evaluate the norm according to eq 76
+    if self.comm.rank == root:
+        norm_1 = N+np.sum(self.steady_state[2*N:3*N])
+        sxxpsyy = self.steady_state[3*N:].reshape(3,3,N,N)[0,0,:,:] +\
+            self.steady_state[3*N:].reshape(3,3,N,N)[1,1,:,:]
+        sxymsyx = self.steady_state[3*N:].reshape(3,3,N,N)[0,1,:,:] -\
+            self.steady_state[3*N:].reshape(3,3,N,N)[1,0,:,:]
+        self.norms = []    
+        for kvec in self.kvecs:
+            argmat = np.zeros((N,N))
+            for (m,n) in combinations(np.arange(N),2):
+                argmat[m,n] = kvec.dot(self.atoms[m].coords-self.atoms[n].coords)
+            norm_2 = np.sum(\
+                    np.cos(argmat[np.triu_indices(N, k=1)]) *\
+                        sxxpsyy[np.triu_indices(N, k=1)] +\
+                    np.sin(argmat[np.triu_indices(N, k=1)]) *\
+                        sxymsyx[np.triu_indices(N, k=1)])
+            self.norms.append(0.5*(norm_1+norm_2))
+        self.norms = np.array(self.norms).flatten()
+    else:
+        self.norms = None
+    self.norms = self.comm.bcast(self.norms, root=root) 
+    
     if type(times).__module__ == np.__name__ :
       #An empty grid of size N X nalphas
       #Each element of this list is a dataset
@@ -282,10 +305,11 @@ class BBGKY_System_Eqm:
 	    self.kvec = self.kvecs[kcount]
 	    corrs_summedover_alpha[kcount] += \
 	      self.field_correlations(alpha, r_t, mth_atom)
-	    if self.verbose and pbar_avail and self.comm.rank == root:
-	      bar.update(bar_pos)
-	    localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
-            bar_pos += 1
+          if self.verbose and pbar_avail and self.comm.rank == root:
+              bar.update(bar_pos)
+              bar_pos += 1
+          localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
+            
 	    
       duplicate_comm = Intracomm(self.comm)
       alldata = np.array([None for i in self.kvecs])
@@ -295,7 +319,8 @@ class BBGKY_System_Eqm:
               alldata[kcount] = localsum_data
           else:
               alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
-	  
+          alldata[kcount] = alldata[kcount]/self.norms[kcount]
+    
       if self.comm.rank == root:
           alldata /= self.corr_norm
           
