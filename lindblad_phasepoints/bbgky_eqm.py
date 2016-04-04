@@ -76,7 +76,7 @@ class BBGKY_System_Eqm:
     N = self.latsize
     self.mkl_avail = mkl_avail
     self.pbar_avail = pbar_avail
-    self.corr_norm = 8.0 * self.latsize
+    self.corr_norm = 16.0 * self.latsize
     
     if self.comm.rank == root:
       if self.verbose:
