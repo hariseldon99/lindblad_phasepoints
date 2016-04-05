@@ -40,7 +40,7 @@ def run_lb():
   p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=rad, kvecs=momenta)
 
   #Initiate the DTWA system with the parameters 
-  d = lb.BBGKY_System_Noneqm(p, comm, atoms=a, verbose=True)
+  d = lb.BBGKY_System_Eqm(p, comm, atoms=a, verbose=True)
   #Prepare the times
   t0 = 0.0
   ncyc = 30.0

@@ -67,7 +67,6 @@ class BBGKY_System_Eqm:
       Return value: 
       An object that stores all the parameters above.
     """
-
     self.__dict__.update(params.__dict__)
     self.comm = mpicomm
     #Booleans for verbosity and for calculating site data
@@ -82,7 +81,7 @@ class BBGKY_System_Eqm:
       if self.verbose:
           out = copy.copy(self)
           out.deltamn = 0.0
-	  pprint(vars(out), depth=2)
+          pprint(vars(out), depth=2)
       #Build the gas cloud of atoms
       if atoms == None:
 	c, self.mindist  = generate_coordinates(self.latsize,\
@@ -174,34 +173,33 @@ class BBGKY_System_Eqm:
    state[3*N:].reshape(3,3,N,N)[:,:,np.arange(m),m] = 0.0
    state[3*N:].reshape(3,3,N,N)[:,:,m,np.arange(m+1,N)] = 0.0
 
-  
   def tilde_trans (self, state, a, m):
-	  """
+   """
 	  Tilde transforms the input state as defined in Eq 60-61 of 
 	  Lorenzo's writeup 
 	  This is always done on a disconnected state
 	  a = x,y,z i.e. 0,1,2
-	  """
-	  N = self.latsize
-	  state_1p = state[0:3*N].reshape(3,N)
-	  state_2p = state[3*N:].reshape(3,3,N,N)
-	  #reconnect the disconnected correlators
-	  state2p_conn = state_2p - np.einsum("am,bn->abmn",state_1p,state_1p)
-	  newstate_1p = state_1p
-	  newstate_2p = state_2p
-	  denr = 1.0 + state_1p[a,m]
-	  #This is eq 60
-	  newstate_1p += state_2p[a,:,m,:]
-	  newstate_1p/= denr
-	  #From Eq 17 truncating LHS to 0
-	  state_3p = np.einsum("am,bcng->abcmng",state_1p, state2p_conn)
-	  state_3p += np.einsum("bn,acmg->abcmng",state_1p, state2p_conn)
-	  state_3p += np.einsum("cg,abmn->abcmng",state_1p, state2p_conn)
-	  state_3p += np.einsum("am,bn,cg->abcmng",state_1p,state_1p,state_1p)
-	  #This is eq 61
-	  newstate_2p += state_3p[a,:,:,m,:,:]
-	  newstate_2p /= denr
-	  state = np.concatenate((newstate_1p.flatten(), newstate_2p.flatten()))
+   """
+   N = self.latsize
+   state_1p = state[0:3*N].reshape(3,N)
+   state_2p = state[3*N:].reshape(3,3,N,N)
+   #reconnect the disconnected correlators
+   state2p_conn = state_2p - np.einsum("am,bn->abmn",state_1p,state_1p)
+   newstate_1p = state_1p
+   newstate_2p = state_2p
+   denr = 1.0 + state_1p[a,m]
+   #This is eq 60
+   newstate_1p += state_2p[a,:,m,:]
+   newstate_1p/= denr
+   #From Eq 17 truncating LHS to 0
+   state_3p = np.einsum("am,bcng->abcmng",state_1p, state2p_conn)
+   state_3p += np.einsum("bn,acmg->abcmng",state_1p, state2p_conn)
+   state_3p += np.einsum("cg,abmn->abcmng",state_1p, state2p_conn)
+   state_3p += np.einsum("am,bn,cg->abcmng",state_1p,state_1p,state_1p)
+   #This is eq 61
+   newstate_2p += state_3p[a,:,:,m,:,:]
+   newstate_2p /= denr
+   state = np.concatenate((newstate_1p.flatten(), newstate_2p.flatten()))
 	  
   def field_correlations(self, alpha, r_t, atom):
     """
@@ -383,50 +381,47 @@ class BBGKY_System_Eqm:
 			self.steady_state = r.integrate(r.t+steady_state_dt)
     else:
 		self.steady_state = None
-	
     #First disconnect, then broadcast
     if self.comm.rank == root:
-		self.disconnect(self.steady_state)	
-	        
+        self.disconnect(self.steady_state)
+    
     self.steady_state = self.comm.bcast(self.steady_state, root=root) 
-	 
+
     #Set the initial conditions and the reference states
-    for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
+    for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):  
       m = mth_atom.index
-      
       #This is gonna have 4 states each as per method 3 in Lorenzo's writeup
       mth_atom.state[alpha] = [None, None, None, None]
-      
       #Eq 64 in lorenzo's writeup for a = xyz or 012
-      mth_atom.state[alpha][0] = self.steady_state
+      mth_atom.state[alpha][0] = np.copy(self.steady_state)
       self.tilde_trans(mth_atom.state[alpha][0],0,m)
       self.traceout_1p(mth_atom.state[alpha][0], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][0], m, alpha)
       self.reconnect(mth_atom.state[alpha][0])
-	  
-      mth_atom.state[alpha][1] = self.steady_state
+      
+      mth_atom.state[alpha][1] = np.copy(self.steady_state)
       self.tilde_trans(mth_atom.state[alpha][1],1,m)
       self.traceout_1p(mth_atom.state[alpha][1], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][1], m, alpha)
       self.reconnect(mth_atom.state[alpha][1])
 	  
-      mth_atom.state[alpha][2] = self.steady_state
+      mth_atom.state[alpha][2] = np.copy(self.steady_state)
       self.tilde_trans(mth_atom.state[alpha][2],2,m)
       self.traceout_1p(mth_atom.state[alpha][2], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][2], m, alpha)
       self.reconnect(mth_atom.state[alpha][2])
 	  
-	  #Eq 65 in Lorenzo's writeup:
-      mth_atom.state[alpha][3] = self.steady_state
+	#Eq 65 in Lorenzo's writeup:
+      mth_atom.state[alpha][3] = np.copy(self.steady_state)
       self.traceout_1p(mth_atom.state[alpha][3], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][3], m, alpha)
       self.reconnect(mth_atom.state[alpha][3])
 	        
       mth_atom.refstate[alpha] = rvecs[alpha]
     
-    #Reconnect steady state, then re-broadcast  
+    #Reconnect steady state, then re-broadcast 
     if self.comm.rank == root:
-		self.reconnect(self.steady_state)
+        self.reconnect(self.steady_state)
     self.steady_state = self.comm.bcast(self.steady_state, root=root) 	
   
     for i, times in enumerate(times_split):
