@@ -5,7 +5,7 @@ from mpi4py import MPI
 from reductions import Intracomm
 import copy
 import numpy as np
-from scipy.integrate import ode, odeint
+from scipy.integrate import odeint
 from pprint import pprint
 from numpy.linalg import norm
 from itertools import product, combinations
@@ -71,7 +71,6 @@ class BBGKY_System_Eqm:
     self.comm = mpicomm
     #Booleans for verbosity and for calculating site data
     self.verbose = verbose
-    r = self.cloud_rad
     N = self.latsize
     self.mkl_avail = mkl_avail
     self.pbar_avail = pbar_avail
@@ -143,7 +142,8 @@ class BBGKY_System_Eqm:
 	  """
 	  N = self.latsize
 	  state[3*N:] = (state[3*N:].reshape(3,3,N,N) + \
-		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N), state[0:3*N].reshape(3,N))).flatten()
+		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\
+              state[0:3*N].reshape(3,N))).flatten()
 			
   def reconnect(self,state):
 	  """
@@ -152,7 +152,8 @@ class BBGKY_System_Eqm:
 	  """
 	  N = self.latsize
 	  state[3*N:] = (state[3*N:].reshape(3,3,N,N) - \
-		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N), state[0:3*N].reshape(3,N))).flatten()
+		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\
+              state[0:3*N].reshape(3,N))).flatten()
 			 
   def traceout_1p (self, state, m, alpha):
 	  """
@@ -163,51 +164,74 @@ class BBGKY_System_Eqm:
 	  state[0:3*N].reshape(3,N)[:,m] = rvecs[alpha]
 	  
   def traceout_2p (self, state, m, alpha):
-   """
-	  Trace out all 2-particle operators in state
-	  except for the mth, and substitute with 
-	  the alpha^th phase point operator
-        THIS NEEDS CHECKING
-   """
-   N = self.latsize
-   state[3*N:].reshape(3,3,N,N)[:,:,np.arange(m),m] = 0.0
-   state[3*N:].reshape(3,3,N,N)[:,:,m,np.arange(m+1,N)] = 0.0
+       """
+       Trace out all 2-particle operators in state
+       except for the mth, and substitute with 0
+       THIS NEEDS CHECKING
+       """
+       N = self.latsize
+       state[3*N:].reshape(3,3,N,N)[:,:,np.arange(m),m] = 0.0
+       state[3*N:].reshape(3,3,N,N)[:,:,m,np.arange(m+1,N)] = 0.0
 
   def tilde_trans (self, state, a, m):
-   """
-	  Tilde transforms the input state as defined in Eq 60-61 of 
-	  Lorenzo's writeup 
-	  This is always done on a disconnected state
-	  a = x,y,z i.e. 0,1,2
-   """
-   N = self.latsize
-   state_1p = state[0:3*N].reshape(3,N)
-   state_2p = state[3*N:].reshape(3,3,N,N)
-   #reconnect the disconnected correlators
-   state2p_conn = state_2p - np.einsum("am,bn->abmn",state_1p,state_1p)
-   newstate_1p = state_1p
-   newstate_2p = state_2p
-   denr = 1.0 + state_1p[a,m]
-   #This is eq 60
-   newstate_1p += state_2p[a,:,m,:]
-   newstate_1p/= denr
-   #From Eq 17 truncating LHS to 0
-   state_3p = np.einsum("am,bcng->abcmng",state_1p, state2p_conn)
-   state_3p += np.einsum("bn,acmg->abcmng",state_1p, state2p_conn)
-   state_3p += np.einsum("cg,abmn->abcmng",state_1p, state2p_conn)
-   state_3p += np.einsum("am,bn,cg->abcmng",state_1p,state_1p,state_1p)
-   #This is eq 61
-   newstate_2p += state_3p[a,:,:,m,:,:]
-   newstate_2p /= denr
-   state = np.concatenate((newstate_1p.flatten(), newstate_2p.flatten()))
+       """
+    	  Tilde transforms the input state as defined in Eq 60-61 of 
+    	  Lorenzo's writeup 
+    	  This is always done on a disconnected state
+    	  a = x,y,z i.e. 0,1,2
+       """
+       N = self.latsize
+       state_1p = state[0:3*N].reshape(3,N)
+       state_2p = state[3*N:].reshape(3,3,N,N)
+       #reconnect the disconnected correlators
+       state2p_conn = state_2p - np.einsum("am,bn->abmn",state_1p,state_1p)
+       newstate_1p = state_1p
+       newstate_2p = state_2p
+       denr = 1.0 + state_1p[a,m]
+       #This is eq 60
+       newstate_1p += state_2p[a,:,m,:]
+       newstate_1p/= denr
+       #From Eq 17 truncating LHS to 0
+       state_3p = np.einsum("am,bcng->abcmng",state_1p, state2p_conn)
+       state_3p += np.einsum("bn,acmg->abcmng",state_1p, state2p_conn)
+       state_3p += np.einsum("cg,abmn->abcmng",state_1p, state2p_conn)
+       state_3p += np.einsum("am,bn,cg->abcmng",state_1p,state_1p,state_1p)
+       #This is eq 61
+       newstate_2p += state_3p[a,:,:,m,:,:]
+       newstate_2p /= denr
+       state = np.concatenate((newstate_1p.flatten(), newstate_2p.flatten()))
 	  
+  def normalization(self):
+    """
+    Normalize the equilibrium steady state correlations according to
+    Eq 76 in Lorenzo's writeup
+    """
+    N = self.latsize  
+    norm_1 = N+np.sum(self.steady_state[2*N:3*N])
+    sxxpsyy = self.steady_state[3*N:].reshape(3,3,N,N)[0,0,:,:] +\
+        self.steady_state[3*N:].reshape(3,3,N,N)[1,1,:,:]
+    sxymsyx = self.steady_state[3*N:].reshape(3,3,N,N)[0,1,:,:] -\
+        self.steady_state[3*N:].reshape(3,3,N,N)[1,0,:,:]
+    norms = []    
+    for kvec in self.kvecs:
+        argmat = np.zeros((N,N))
+        for (m,n) in combinations(np.arange(N),2):
+            argmat[m,n] = kvec.dot(self.atoms[m].coords-self.atoms[n].coords)
+        norm_2 = np.sum(\
+                np.cos(argmat[np.triu_indices(N, k=1)]) *\
+                    sxxpsyy[np.triu_indices(N, k=1)] +\
+                np.sin(argmat[np.triu_indices(N, k=1)]) *\
+                    sxymsyx[np.triu_indices(N, k=1)])
+        norms.append(0.5*(norm_1+norm_2))
+    return np.array(norms).flatten()
+
   def field_correlations(self, alpha, r_t, atom):
     """
     Compute the equilibrium field correlations in
     times t_output 
     """
     N = self.latsize
-    (m, coord_m) = atom.index, atom.coords
+    m = atom.index
     #EQUATION 63 BELOW	      
     lx_m = rvecs[alpha][0]
     ly_m = rvecs[alpha][1]
@@ -233,37 +257,14 @@ class BBGKY_System_Eqm:
         (1-1j) * np.sum(ly_nm, axis=1))        
     return corrs_summedover_n
 
-  def bbgky_noneqm(self, times):
+  def bbgky_eqm(self, times):
     """
     Evolves the BBGKY dynamics for selected phase points
     call with bbgky(t), where t is an array of times
     returns the "equilibrium" field correlations 
     i.e. correlations w.r.t. the final steady state
     """
-    N = self.latsize
     r_t = [None, None, None, None]
-    #Evaluate the norm according to eq 76
-    if self.comm.rank == root:
-        norm_1 = N+np.sum(self.steady_state[2*N:3*N])
-        sxxpsyy = self.steady_state[3*N:].reshape(3,3,N,N)[0,0,:,:] +\
-            self.steady_state[3*N:].reshape(3,3,N,N)[1,1,:,:]
-        sxymsyx = self.steady_state[3*N:].reshape(3,3,N,N)[0,1,:,:] -\
-            self.steady_state[3*N:].reshape(3,3,N,N)[1,0,:,:]
-        self.norms = []    
-        for kvec in self.kvecs:
-            argmat = np.zeros((N,N))
-            for (m,n) in combinations(np.arange(N),2):
-                argmat[m,n] = kvec.dot(self.atoms[m].coords-self.atoms[n].coords)
-            norm_2 = np.sum(\
-                    np.cos(argmat[np.triu_indices(N, k=1)]) *\
-                        sxxpsyy[np.triu_indices(N, k=1)] +\
-                    np.sin(argmat[np.triu_indices(N, k=1)]) *\
-                        sxymsyx[np.triu_indices(N, k=1)])
-            self.norms.append(0.5*(norm_1+norm_2))
-        self.norms = np.array(self.norms).flatten()
-    else:
-        self.norms = None
-    self.norms = self.comm.bcast(self.norms, root=root) 
     
     if type(times).__module__ == np.__name__ :
       #An empty grid of size N X nalphas
@@ -281,7 +282,6 @@ class BBGKY_System_Eqm:
 	  bar.update(bar_pos)
       for tpl, mth_atom in np.ndenumerate(self.local_atoms):
 	(atom_count,) = tpl
-	(m, coord_m) = mth_atom.index, mth_atom.coords
 	corrs_summedover_alpha = \
 	  np.zeros((self.kvecs.shape[0], times.size), \
 	    dtype=np.complex_)
@@ -308,7 +308,6 @@ class BBGKY_System_Eqm:
               bar_pos += 1
           localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
             
-	    
       duplicate_comm = Intracomm(self.comm)
       alldata = np.array([None for i in self.kvecs])
       for kcount in xrange(self.kvecs.shape[0]):
@@ -317,7 +316,8 @@ class BBGKY_System_Eqm:
               alldata[kcount] = localsum_data
           else:
               alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
-          alldata[kcount] = alldata[kcount]/self.norms[kcount]
+          if self.comm.rank == root:
+              alldata[kcount] = alldata[kcount]/self.norms[kcount]
     
       if self.comm.rank == root:
           alldata /= self.corr_norm
@@ -365,28 +365,31 @@ class BBGKY_System_Eqm:
     #Empty list     
     outdata = []
     times_split = np.array_split(time_info, nchunks)
-    t_sizes = np.array([t.size for t in times_split])
     #The refstate is the final steady state after a long time,
     #internally set in "consts.py"
     #Only have root do this, then broadcast
-    if self.comm.rank == root:  
-		a = np.zeros((3,self.latsize))
-		a[2] = np.ones(self.latsize)
-		c = np.zeros((3,3,self.latsize, self.latsize))
-		initstate = np.concatenate((a.flatten(), c.flatten()))
-		self.steady_state = np.zeros_like(initstate)
-		r = ode(lindblad_bbgky_pywrap_ode).set_integrator(int_method)
-		r.set_initial_value(initstate, steady_state_init_time).set_f_params(self)
-		while r.successful() and r.t < steady_state_final_time:
-			self.steady_state = r.integrate(r.t+steady_state_dt)
+    if self.comm.rank == root:
+        if self.verbose:
+            print("Evaluating steady state ...")
+        times_ss = np.linspace(ss_init_time, ss_final_time, ss_nsteps)
+        a = np.zeros((3,N))
+        a[2] = np.ones(N)
+        c = np.zeros((3, 3, N, N))
+        self.steady_state = np.concatenate((a.flatten(), c.flatten()))
+        self.state = odeint(lindblad_bbgky_pywrap, self.steady_state, times_ss,\
+                 args=(self,), Dfun=None)
+        self.steady_state = self.state[-1]
+        if self.verbose:
+            print("Done!!!")
+    
     else:
-		self.steady_state = None
+        self.steady_state = None
     #First disconnect, then broadcast
     if self.comm.rank == root:
         self.disconnect(self.steady_state)
-    
-    self.steady_state = self.comm.bcast(self.steady_state, root=root) 
 
+    self.steady_state = self.comm.bcast(self.steady_state, root=root)     
+    
     #Set the initial conditions and the reference states
     for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):  
       m = mth_atom.index
@@ -419,6 +422,13 @@ class BBGKY_System_Eqm:
 	        
       mth_atom.refstate[alpha] = rvecs[alpha]
     
+    #Evaluate the norm according to eq 76
+    if self.comm.rank == root:
+        self.norms = self.normalization()
+    else:
+        self.norms = None
+    self.norms = self.comm.bcast(self.norms, root=root) 
+
     #Reconnect steady state, then re-broadcast 
     if self.comm.rank == root:
         self.reconnect(self.steady_state)
@@ -427,7 +437,7 @@ class BBGKY_System_Eqm:
     for i, times in enumerate(times_split):
       if i < len(times_split)-1:
 	times[-1] = times_split[i+1][0]
-      outdata.append(self.bbgky_noneqm(times))
+      outdata.append(self.bbgky_eqm(times))
      
     if self.comm.rank == root:
 	allsizes = np.zeros(self.comm.size)

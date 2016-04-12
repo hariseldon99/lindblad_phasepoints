@@ -6,7 +6,7 @@ from mpi4py import MPI
 import sys
 import lindblad_phasepoints as lb
 from tabulate import tabulate
- 
+
 def run_lb():
   comm = MPI.COMM_WORLD
   rank = comm.Get_rank()
@@ -15,7 +15,7 @@ def run_lb():
   #Parameters
   lattice_size = 5
   l = lattice_size
-  amp = 1.0
+  amp = 40.0
   det = 0.0
   rad = 1.99647 
   thetas = np.array([0.0])
@@ -25,7 +25,8 @@ def run_lb():
   momenta = np.vstack((kx,ky,kz)).T
 
   #Initiate the parameters in object
-  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=rad, kvecs=momenta)
+  p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det,\
+                  cloud_rad=rad, kvecs=momenta)
   
   c = np.array(\
   [[2.8905099e+00, -6.4307892e-01, -2.2003016e+00], \
@@ -40,8 +41,8 @@ def run_lb():
   
   #Prepare the times
   t0 = 0.0
-  ncyc = 1.0
-  nsteps = 100
+  ncyc = 30.0
+  nsteps = 3000
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   (corrdata, distribution, atoms_info) = d.evolve(times, nchunks=1)
@@ -57,13 +58,16 @@ def run_lb():
     	s = np.array_split(spectrum,2)[0]
     	f = np.array_split(freqs,2)[0]
     	#Prepare the output files. One for each observable
-    	fname = "corr_time_" + "amp_" + str(amp) + "_det_" + str(det) + "_theta_" + str(thetas[count])
+    	fname = "corr_time_" + "amp_" + str(amp) + "_det_" + str(det) + "_theta_"\
+                 + str(thetas[count])
     	fname += "_cldrad_" + str(rad) 
     	fname += "_N_" + str(l) + ".txt"
     	#Dump each observable to a separate file
-    	np.savetxt(fname, np.vstack((np.abs(times), data.real, data.imag)).T, delimiter=' ')
+    	np.savetxt(fname, np.vstack((np.abs(times), data.real, data.imag)).T,\
+                 delimiter=' ')
 
-    	fname = "spectrum_omega_" + "amp_" + str(amp) + "_det_" + str(det) + "_theta_" + str(thetas[count])
+    	fname = "spectrum_omega_" + "amp_" + str(amp) + "_det_" + str(det) +\
+                 "_theta_" + str(thetas[count])
     	fname += "_cldrad_" + str(rad)  
     	fname += "_N_" + str(l) + ".txt"
     	np.savetxt(fname, np.vstack((np.abs(f), np.abs(s))).T, delimiter=' ')

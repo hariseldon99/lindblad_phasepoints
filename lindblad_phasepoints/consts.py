@@ -3,7 +3,7 @@ from numpy import eye, zeros, array
 
 #Progressbar widgets
 try:
-  from progressbar import Bar, Counter, ETA, Percentage
+  from progressbar import Bar, ETA, Percentage
   pbar_avail = True
   widgets_rnd = ['Creating atoms: ', Percentage(), ' ', Bar(), ' ', ETA()]
   widgets_bbgky = ['BBGKY  dynamics (root only): ',\
@@ -39,9 +39,7 @@ rvecs = array([[1., 1., 1.],
 bigsize = 100000
 
 #Steady state init and final times
-steady_state_init_time = 0.0
-steady_state_final_time = 15.0
-steady_state_nsteps = 1000
-steady_state_dt = (steady_state_final_time - steady_state_init_time)
-steady_state_dt /= (steady_state_nsteps - 1.0)
+ss_init_time = 0.0
+ss_final_time = 300.0
+ss_nsteps = 30000
 int_method = 'lsoda'
