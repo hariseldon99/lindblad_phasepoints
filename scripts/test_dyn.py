@@ -15,19 +15,17 @@ def run_lb():
   #Parameters
   lattice_size = 5
   l = lattice_size
-  amp = 40.0
+  amp = 1.0
   det = 0.0
-  rad = 3.5
+  rad = 1.99647
   
-  X = np.multiply(1.0,[0.8433750829,-1.2803473026,1.0181477728,\
-  0.1174184381,0.3337908024])
-  Y = np.multiply(1.0,[0.9357690701,1.1295487005,0.2797869521,\
-  -1.6137283835,-0.6879217930])
-  Z = np.multiply(1.0,[-0.6672270133,-0.9366718440,-1.6653795701,\
-  -0.9979258426,1.2716974002])
+  c = np.array(\
+  [[2.8905099e+00, -6.4307892e-01, -2.2003016e+00], \
+  [ 1.9754890e+00,  5.7246455e+00, -1.2107655e+00], \
+  [-1.1571209e+00, -3.4153661e+00,  1.2492316e+00], \
+  [-4.8293769e-01, -1.4840459e+00,  1.3405251e-01], \
+  [-3.6379785e-01, -9.0011327e-01,  2.4887775e+00]])
 
-  c = np.vstack((X,Y,Z)).T
-  
   a = np.array([lb.Atom(coords = c[i], index = i) for i in xrange(l)])
 
   thetas = np.array([0.0,np.pi/4.])
@@ -40,11 +38,11 @@ def run_lb():
   p = lb.ParamData(latsize=lattice_size, amplitude=amp, detuning=det, cloud_rad=rad, kvecs=momenta)
 
   #Initiate the DTWA system with the parameters 
-  d = lb.BBGKY_System_Eqm(p, comm, atoms=a, verbose=True)
+  d = lb.BBGKY_System_Noneqm(p, comm, atoms=a, verbose=True)
   #Prepare the times
   t0 = 0.0
-  ncyc = 30.0
-  nsteps = 30000
+  ncyc = 10.0
+  nsteps = 10000
   times = np.linspace(t0, ncyc, nsteps)
   timestep = times[1]-times[0]
   (corrdata, distribution, atoms_info) = d.evolve(times, nchunks=1)

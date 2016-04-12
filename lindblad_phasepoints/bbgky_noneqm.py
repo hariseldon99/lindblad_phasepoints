@@ -155,7 +155,7 @@ class BBGKY_System_Noneqm:
     N = self.latsize
     (m, coord_m) = atom.index, atom.coords
     phase_m = np.exp(1j*self.kvec.dot(coord_m))
-    init_m = atom.refstate[alpha][0:N][m] + (1j) * atom.refstate[alpha][0:N][m] 
+    init_m = atom.refstate[alpha][0:N][m] + (1j) * atom.refstate[alpha][N:2*N][m] 
     phases_conj = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
       for atom in self.atoms])
     return init_m * phase_m * \
@@ -210,11 +210,11 @@ class BBGKY_System_Noneqm:
       duplicate_comm = Intracomm(self.comm)
       alldata = np.array([None for i in self.kvecs])
       for kcount in xrange(self.kvecs.shape[0]):
-	localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
-	if self.comm.size == 1:
-	  alldata[kcount] = localsum_data
-	else:
-	  alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
+          localsum_data = np.sum(np.array(localdata[kcount]), axis=0)
+          if self.comm.size == 1:
+              alldata[kcount] = localsum_data
+          else:
+              alldata[kcount] = duplicate_comm.reduce(localsum_data, root=root)
 	  
       if self.comm.rank == root:
 	alldata /= self.corr_norm
