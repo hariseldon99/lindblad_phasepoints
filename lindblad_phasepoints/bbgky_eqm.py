@@ -158,7 +158,8 @@ class BBGKY_System_Eqm:
   def traceout_1p (self, state, m, alpha):
 	  """
 	  Trace out all the mth, and substitute with 
-	  the alpha^th phase point operator
+	  the alpha^th phase point operator i.e. multiply
+        with A_{\alpha_\mu}
 	  """
 	  N = self.latsize
 	  state[0:3*N].reshape(3,N)[:,m] = rvecs[alpha]
@@ -167,20 +168,22 @@ class BBGKY_System_Eqm:
        """
        Trace out all 2-particle operators in state
        except for the mth, and substitute with 0
-       THIS NEEDS CHECKING
        """
        N = self.latsize
-       state[3*N:].reshape(3,3,N,N)[:,:,np.arange(m),m] = 0.0
-       state[3*N:].reshape(3,3,N,N)[:,:,m,np.arange(m+1,N)] = 0.0
+       state[3*N:].reshape(3,3,N,N)[:,:,:,m] = 0.0
+       state[3*N:].reshape(3,3,N,N)[:,:,m,:] = 0.0
+       state[3*N:].reshape(3,3,N,N)[:,:,np.arange(N),np.arange(N)] = 0.0
 
   def tilde_trans (self, state, a, m):
        """
     	  Tilde transforms the input state as defined in Eq 60-61 of 
     	  Lorenzo's writeup 
-    	  This is always done on a disconnected state
     	  a = x,y,z i.e. 0,1,2
        """
        N = self.latsize
+       #First disconnect the state
+       self.disconnect(state)
+       #Then apply the tilde transform
        state_1p = state[0:3*N].reshape(3,N)
        state_2p = state[3*N:].reshape(3,3,N,N)
        #reconnect the disconnected correlators
@@ -200,6 +203,9 @@ class BBGKY_System_Eqm:
        newstate_2p += state_3p[a,:,:,m,:,:]
        newstate_2p /= denr
        state = np.concatenate((newstate_1p.flatten(), newstate_2p.flatten()))
+       #Reconnect the state
+       self.reconnect(state)
+
 	  
   def normalization(self):
     """
@@ -207,6 +213,8 @@ class BBGKY_System_Eqm:
     Eq 76 in Lorenzo's writeup
     """
     N = self.latsize  
+    #First disconnect
+    self.disconnect(self.steady_state)
     norm_1 = N+np.sum(self.steady_state[2*N:3*N])
     sxxpsyy = self.steady_state[3*N:].reshape(3,3,N,N)[0,0,:,:] +\
         self.steady_state[3*N:].reshape(3,3,N,N)[1,1,:,:]
@@ -223,6 +231,8 @@ class BBGKY_System_Eqm:
                 np.sin(argmat[np.triu_indices(N, k=1)]) *\
                     sxymsyx[np.triu_indices(N, k=1)])
         norms.append(0.5*(norm_1+norm_2))
+    #Reconnect before exit    
+    self.reconnect(self.steady_state)    
     return np.array(norms).flatten()
 
   def field_correlations(self, alpha, r_t, atom):
@@ -384,9 +394,6 @@ class BBGKY_System_Eqm:
     
     else:
         self.steady_state = None
-    #First disconnect, then broadcast
-    if self.comm.rank == root:
-        self.disconnect(self.steady_state)
 
     self.steady_state = self.comm.bcast(self.steady_state, root=root)     
     
@@ -400,39 +407,30 @@ class BBGKY_System_Eqm:
       self.tilde_trans(mth_atom.state[alpha][0],0,m)
       self.traceout_1p(mth_atom.state[alpha][0], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][0], m, alpha)
-      self.reconnect(mth_atom.state[alpha][0])
       
       mth_atom.state[alpha][1] = np.copy(self.steady_state)
       self.tilde_trans(mth_atom.state[alpha][1],1,m)
       self.traceout_1p(mth_atom.state[alpha][1], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][1], m, alpha)
-      self.reconnect(mth_atom.state[alpha][1])
-	  
+      
       mth_atom.state[alpha][2] = np.copy(self.steady_state)
       self.tilde_trans(mth_atom.state[alpha][2],2,m)
       self.traceout_1p(mth_atom.state[alpha][2], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][2], m, alpha)
-      self.reconnect(mth_atom.state[alpha][2])
 	  
 	#Eq 65 in Lorenzo's writeup:
       mth_atom.state[alpha][3] = np.copy(self.steady_state)
       self.traceout_1p(mth_atom.state[alpha][3], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][3], m, alpha)
-      self.reconnect(mth_atom.state[alpha][3])
 	        
       mth_atom.refstate[alpha] = rvecs[alpha]
     
-    #Evaluate the norm according to eq 76
+    #Evaluate the correlation norm according to eq 76
     if self.comm.rank == root:
         self.norms = self.normalization()
     else:
         self.norms = None
-    self.norms = self.comm.bcast(self.norms, root=root) 
-
-    #Reconnect steady state, then re-broadcast 
-    if self.comm.rank == root:
-        self.reconnect(self.steady_state)
-    self.steady_state = self.comm.bcast(self.steady_state, root=root) 	
+    self.norms = self.comm.bcast(self.norms, root=root) 	
   
     for i, times in enumerate(times_split):
       if i < len(times_split)-1:
