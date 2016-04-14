@@ -235,13 +235,14 @@ class BBGKY_System_Eqm:
     self.reconnect(self.steady_state)    
     return np.array(norms).flatten()
 
-  def field_correlations(self, alpha, r_t, atom):
+  def field_correlations(self, kvec, alpha, r_t, atom):
     """
     Compute the equilibrium field correlations in
     times t_output 
     """
     N = self.latsize
-    m = atom.index
+    m, r_m = atom.index, atom.coords
+    phases = np.exp((-1j)*np.array([kvec.dot(a.coords) for a in self.atoms]))
     #EQUATION 63 BELOW	      
     lx_m = rvecs[alpha][0]
     ly_m = rvecs[alpha][1]
@@ -249,23 +250,24 @@ class BBGKY_System_Eqm:
     sx_m = self.steady_state[0:N][m]
     sy_m = self.steady_state[N:2*N][m]
     sz_m = self.steady_state[2*N:3*N][m]
-    lxx_nm = r_t[0][:,0:N]
+    lxx_nm = r_t[0][:,0:N]  
     lyx_nm = r_t[0][:,N:2*N]
     lyy_nm = r_t[1][:,N:2*N]
     lxy_nm = r_t[1][:,0:N]
     lxz_nm = r_t[2][:,0:N]
-    lyz_nm = r_t[2][:,0:2*N]
+    lyz_nm = r_t[2][:,N:2*N]
     lx_nm = r_t[3][:,0:N]
     ly_nm = r_t[3][:,N:2*N]
-    corrs_summedover_n = (1.+sx_m)*(1.-lz_m)*np.sum(lxx_nm-(1j)*lyx_nm, axis=1)
-    corrs_summedover_n += (1.+sy_m)*(1.-lz_m)*np.sum(lyy_nm+(1j)*lxy_nm, axis=1)
-    lxz_nm_sum = np.sum(lxz_nm, axis=1) 
-    lyz_nm_sum = np.sum(lyz_nm, axis=1)
+    corrs_summedover_n = (1.+sx_m)*(1.-lz_m)*np.sum(phases * (lxx_nm-(1j)*lyx_nm), axis=1)
+    corrs_summedover_n += (1.+sy_m)*(1.-lz_m)*np.sum(phases * (lyy_nm+(1j)*lxy_nm), axis=1)
+    lxz_nm_sum = np.sum(phases * lxz_nm, axis=1) 
+    lyz_nm_sum = np.sum(phases * lyz_nm, axis=1)
     corrs_summedover_n += (1.+sz_m)*(lx_m * lxz_nm_sum + ly_m * lyz_nm_sum)
     corrs_summedover_n += (1j)*(1.+sz_m)*(ly_m * lxz_nm_sum - lx_m * lyz_nm_sum)
-    corrs_summedover_n += (lz_m-1)*((1.+1j) * np.sum(lx_nm,axis=1) +\
-        (1-1j) * np.sum(ly_nm, axis=1))        
-    return corrs_summedover_n
+    corrs_summedover_n += (lz_m-1)*((1.+1j) * np.sum(phases * lx_nm,axis=1) +\
+        (1-1j) * np.sum(phases * ly_nm, axis=1))        
+    ph = np.exp( (1j) * kvec.dot(r_m) )    
+    return ph * corrs_summedover_n
 
   def bbgky_eqm(self, times):
     """
@@ -275,49 +277,48 @@ class BBGKY_System_Eqm:
     i.e. correlations w.r.t. the final steady state
     """
     r_t = [None, None, None, None]
-    
+    if self.comm.rank ==  root and self.verbose:
+        print("Starting up the BBGKY dynamics...")
     if type(times).__module__ == np.__name__ :
       #An empty grid of size N X nalphas
       #Each element of this list is a dataset
       localdata = [[None for f in range(self.local_atoms.size)] \
-	for kvec in self.kvecs]
+                                                        for kvec in self.kvecs]
       if pbar_avail:
-	if self.comm.rank == root and self.verbose: 
-	  pbar_max = \
-	    self.kvecs.shape[0] * self.local_atoms.size * nalphas - 1
-	  bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
-	    max_value=pbar_max, redirect_stdout=False)
-      bar_pos = 0	   
-      if self.verbose and pbar_avail and self.comm.rank == root:
-	  bar.update(bar_pos)
-      for tpl, mth_atom in np.ndenumerate(self.local_atoms):
-	(atom_count,) = tpl
-	corrs_summedover_alpha = \
-	  np.zeros((self.kvecs.shape[0], times.size), \
-	    dtype=np.complex_)
-	for alpha in xrange(nalphas):
-	  r_t[0] = odeint(lindblad_bbgky_pywrap, \
-	    mth_atom.state[alpha][0], times, args=(self,), Dfun=None)
-	  r_t[1] = odeint(lindblad_bbgky_pywrap, \
-	    mth_atom.state[alpha][1], times, args=(self,), Dfun=None)
-	  r_t[2] = odeint(lindblad_bbgky_pywrap, \
-	    mth_atom.state[alpha][2], times, args=(self,), Dfun=None)
-	  r_t[3] = odeint(lindblad_bbgky_pywrap, \
-	    mth_atom.state[alpha][3], times, args=(self,), Dfun=None)      
-	  #Update the final state
-	  self.local_atoms[atom_count].state[alpha][0] = r_t[0][-1] 
-	  self.local_atoms[atom_count].state[alpha][1] = r_t[1][-1] 
-	  self.local_atoms[atom_count].state[alpha][2] = r_t[2][-1] 
-	  self.local_atoms[atom_count].state[alpha][3] = r_t[3][-1] 
-	  for kcount in xrange(self.kvecs.shape[0]):
-	    self.kvec = self.kvecs[kcount]
-	    corrs_summedover_alpha[kcount] += \
-	      self.field_correlations(alpha, r_t, mth_atom)
+          if self.comm.rank == root and self.verbose: 
+              pbar_max = self.kvecs.shape[0] * self.local_atoms.size * nalphas - 1
+              bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
+                                     max_value=pbar_max, redirect_stdout=False)
+              bar_pos = 0	   
           if self.verbose and pbar_avail and self.comm.rank == root:
               bar.update(bar_pos)
-              bar_pos += 1
-          localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
-            
+      for tpl, mth_atom in np.ndenumerate(self.local_atoms):
+          (atom_count,) = tpl
+          corrs_summedover_alpha = np.zeros((self.kvecs.shape[0], times.size),\
+                                                             dtype=np.complex_)
+          for alpha in xrange(nalphas):
+              r_t[0] = odeint(lindblad_bbgky_pywrap, mth_atom.state[alpha][0],\
+                                                times, args=(self,), Dfun=None)
+              r_t[1] = odeint(lindblad_bbgky_pywrap, mth_atom.state[alpha][1],\
+                                                times, args=(self,), Dfun=None)
+              r_t[2] = odeint(lindblad_bbgky_pywrap, mth_atom.state[alpha][2],\
+                                                times, args=(self,), Dfun=None)
+              r_t[3] = odeint(lindblad_bbgky_pywrap, mth_atom.state[alpha][3],\
+                                                times, args=(self,), Dfun=None)     
+              #Update the final state
+              self.local_atoms[atom_count].state[alpha][0] = r_t[0][-1] 
+              self.local_atoms[atom_count].state[alpha][1] = r_t[1][-1] 
+              self.local_atoms[atom_count].state[alpha][2] = r_t[2][-1] 
+              self.local_atoms[atom_count].state[alpha][3] = r_t[3][-1] 
+              for kcount in xrange(self.kvecs.shape[0]):
+                  corrs_summedover_alpha[kcount] += \
+                         self.field_correlations(self.kvecs[kcount], alpha,\
+                                                             r_t, mth_atom)
+                  if self.verbose and pbar_avail and self.comm.rank == root:
+                      bar.update(bar_pos)
+                      bar_pos += 1
+                  localdata[kcount][atom_count] = corrs_summedover_alpha[kcount]
+
       duplicate_comm = Intracomm(self.comm)
       alldata = np.array([None for i in self.kvecs])
       for kcount in xrange(self.kvecs.shape[0]):
@@ -424,7 +425,7 @@ class BBGKY_System_Eqm:
       self.traceout_2p(mth_atom.state[alpha][3], m, alpha)
 	        
       mth_atom.refstate[alpha] = rvecs[alpha]
-    
+
     #Evaluate the correlation norm according to eq 76
     if self.comm.rank == root:
         self.norms = self.normalization()
