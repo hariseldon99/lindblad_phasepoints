@@ -1,2 +1,5 @@
+0.1 Bugfix (N-dependent normalization offset)
+0.2 Check consistency in parallelization with different procs
+
 1. Docs! Docs! Lotsa work on the docs.
 2. Evaluate site correlations as functions of time and dump the whole data to parallel hdf5
