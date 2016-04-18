@@ -1,6 +1,7 @@
 #Class Library
 import numpy as np
 from numpy.linalg import norm
+from consts import *
 
 class ParamData:
     """Class that stores Hamiltonian and lattice parameters 
