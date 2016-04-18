@@ -1,6 +1,4 @@
-0.1 Bugfix (N-dependent normalization offset)
-0.2 Check consistency in parallelization with different procs
-0.3 Profile odeint of steady state with that of Lorenzo's code. Why is his (seemingly) faster???
+0.1 Profile odeint of steady state with that of Lorenzo's code. Why is his (seemingly) faster???
 
 1. Docs! Docs! Lotsa work on the docs.
 2. Evaluate site correlations as functions of time and dump the whole data to parallel hdf5

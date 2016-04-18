@@ -241,6 +241,7 @@ class BBGKY_System_Eqm:
     times t_output 
     """
     N = self.latsize
+    norm = N/2.
     m, r_m = atom.index, atom.coords
     phases = np.exp((-1j)*np.array([kvec.dot(a.coords) for a in self.atoms]))
     #EQUATION 63 BELOW	      
@@ -267,7 +268,7 @@ class BBGKY_System_Eqm:
     corrs_summedover_n += (lz_m-1)*((1.+1j) * np.sum(phases * lx_nm,axis=1) +\
         (1-1j) * np.sum(phases * ly_nm, axis=1))        
     ph = np.exp( (1j) * kvec.dot(r_m) )    
-    return ph * corrs_summedover_n
+    return ph * norm * corrs_summedover_n
 
   def bbgky_eqm(self, times):
     """
