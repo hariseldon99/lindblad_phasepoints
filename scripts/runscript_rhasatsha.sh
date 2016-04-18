@@ -1,7 +1,7 @@
 #!/bin/bash
 #########################################################################
 ## Name of my job
-#PBS -N lindblad_N100
+#PBS -N lindblad_eqn
 #PBS -l walltime=24:00:00
 #########################################################################
 ##Export all PBS environment variables
@@ -15,13 +15,13 @@
 ##Number of nodes and procs per node.
 ##The ib at the end means infiniband. Use that or else MPI gets confused 
 ##with ethernet
-#PBS -l select=2:ncpus=8:mpiprocs=8,place=scatter
+#PBS -l select=1:ncpus=7:mpiprocs=7,place=scatter
 #########################################################################
 ##Send me email when my job aborts, begins, or ends
 #PBS -m ea
 #PBS -M daneel@sun.ac.za
 #########################################################################
-SCRIPT="./N_100.py"
+SCRIPT="./compute_pi.py"
 
 cd $PBS_O_WORKDIR
 
@@ -39,8 +39,7 @@ NO_OF_CORES=$(cat $PBS_NODEFILE | wc -l)
 module load dot
 BEGINTIME=$(date +"%s")
 ##Now, run the code
-/usr/lib64/openmpi/bin/mpirun -np $NO_OF_CORES \
-  --hostfile ${PBS_NODEFILE} -x LD_LIBRARY_PATH \
+mpirun -np $NO_OF_CORES --hostfile ${PBS_NODEFILE} \
       python -W ignore $SCRIPT 
 ENDTIME=$(date +"%s")
 ELAPSED_TIME=$(($ENDTIME-$BEGINTIME))
