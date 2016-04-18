@@ -1,12 +1,6 @@
 #Class Library
-from mpi4py import MPI
 import numpy as np
 from numpy.linalg import norm
-from itertools import starmap
-import operator as op
-from consts import *
-import math
-from scipy.sparse import dia_matrix
 
 class ParamData:
     """Class that stores Hamiltonian and lattice parameters 
@@ -42,7 +36,7 @@ class ParamData:
        is scaled to unity and propagates in the z-direction
        by default unless you set the azimuth theta to a specific value
       """
-
+      self.flipped = False
       self.latsize = latsize
       self.drv_amp, self.drv_freq = amplitude, detuning
       self.cloud_rad = cloud_rad
@@ -54,6 +48,15 @@ class ParamData:
       self.cloud_density = \
 	self.latsize/((4./3.) * np.pi * pow(self.cloud_rad,3.0))
       self.intpt_spacing = 0.5/pow(self.cloud_density,1./3.)
+    
+    def flip(self):
+        """
+        Applies the time-reversal symmetry operator to the parameters
+        by flipping the sign of the amplitude, detuning and hopping matrix
+        """
+        self.drv_amp, self.drv_freq = -self.drv_amp, -self.drv_freq
+        self.kvec_incident = -self.kvec_incident
+        self.flipped = not self.flipped
 
 class Atom:
   """
