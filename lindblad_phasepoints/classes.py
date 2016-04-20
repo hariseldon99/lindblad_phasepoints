@@ -49,15 +49,6 @@ class ParamData:
       self.cloud_density = \
 	self.latsize/((4./3.) * np.pi * pow(self.cloud_rad,3.0))
       self.intpt_spacing = 0.5/pow(self.cloud_density,1./3.)
-    
-    def flip(self):
-        """
-        Applies the time-reversal symmetry operator to the parameters
-        by flipping the sign of the amplitude, detuning and hopping matrix
-        """
-        self.drv_amp, self.drv_freq = -self.drv_amp, -self.drv_freq
-        self.kvec_incident = -self.kvec_incident
-        self.flipped = not self.flipped
 
 class Atom:
   """
