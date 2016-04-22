@@ -41,5 +41,5 @@ bigsize = 100000
 #Steady state init and final times
 ss_init_time = 0.0
 ss_final_time = 300.0
-ss_nsteps = 30000
+ss_nsteps = 100000
 int_method = 'lsoda'
