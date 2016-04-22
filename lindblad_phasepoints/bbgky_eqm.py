@@ -166,8 +166,8 @@ class BBGKY_System_Eqm:
 	  
   def traceout_2p (self, state, m, alpha):
        """
-       Trace out all 2-particle operators in state
-       except for the mth, and substitute with 0
+       Trace out the mth of the 2-particle terms by
+       substituting with 0
        """
        N = self.latsize
        state[3*N:].reshape(3,3,N,N)[:,:,:,m] = 0.0
