@@ -170,9 +170,13 @@ class BBGKY_System_Eqm:
        substituting with 0
        """
        N = self.latsize
+       #First disconnect the state
+       self.disconnect(state)
        state[3*N:].reshape(3,3,N,N)[:,:,:,m] = 0.0
        state[3*N:].reshape(3,3,N,N)[:,:,m,:] = 0.0
        state[3*N:].reshape(3,3,N,N)[:,:,np.arange(N),np.arange(N)] = 0.0
+       #Reconnect the state
+       self.reconnect(state)
 
   def tilde_trans (self, state, a, m):
        """
