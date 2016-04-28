@@ -154,7 +154,7 @@ class BBGKY_System_Eqm:
 	  state[3*N:] = (state[3*N:].reshape(3,3,N,N) - \
 		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\
               state[0:3*N].reshape(3,N))).flatten()
-			 
+
   def traceout_1p (self, state, m, alpha):
 	  """
 	  Trace out all the mth, and substitute with 
@@ -204,8 +204,9 @@ class BBGKY_System_Eqm:
        newstate_2p += state_3p[a,:,:,m,:,:]
        newstate_2p /= denr
        state = np.concatenate((newstate_1p.flatten(), newstate_2p.flatten()))
-       #Reconnect the state
-       self.reconnect(state)
+       #Reconnect the state. SOMEHOW. THIS IS CREATING PROBLEMS WITH SETTING THE IC
+       #EVEN THOUGH THE ALGORITHM IS CORRECT!!!
+       #self.reconnect(state)
 
 	  
   def normalization(self):
@@ -399,7 +400,6 @@ class BBGKY_System_Eqm:
         self.steady_state = None
 
     self.steady_state = self.comm.bcast(self.steady_state, root=root)     
-    
     #Set the initial conditions and the reference states
     for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):  
       m = mth_atom.index
@@ -408,16 +408,53 @@ class BBGKY_System_Eqm:
       #Eq 64 in lorenzo's writeup for a = xyz or 012
       mth_atom.state[alpha][0] = np.copy(self.steady_state)
       self.tilde_trans(mth_atom.state[alpha][0],0,m)
+      
+      ###############MANUALLY RECONNECT. THIS NEEDS TO BE IMPROVED##############
+      connected = np.copy(mth_atom.state[alpha][0])
+      for a in xrange(3):
+          for b in xrange(3):
+             for i in xrange(N):
+               for j in xrange(N):
+                    mth_atom.state[alpha][0][3*N:][(b+3*a)*N*N+(j+N*i)]  =\
+                                connected[3*N:][(b+3*a)*N*N+(j+N*i)] -\
+                                         connected[(N*a)+i] * connected[(N*b)+j]
+      #########################################################################
+      
       self.traceout_1p(mth_atom.state[alpha][0], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][0], m, alpha)
-      
+
+
       mth_atom.state[alpha][1] = np.copy(self.steady_state)
       self.tilde_trans(mth_atom.state[alpha][1],1,m)
+      
+      ###############MANUALLY RECONNECT. THIS NEEDS TO BE IMPROVED##############
+      connected = np.copy(mth_atom.state[alpha][1])
+      for a in xrange(3):
+          for b in xrange(3):
+             for i in xrange(N):
+               for j in xrange(N):
+                    mth_atom.state[alpha][1][3*N:][(b+3*a)*N*N+(j+N*i)]  =\
+       				connected[3*N:][(b+3*a)*N*N+(j+N*i)] -\
+      					 connected[(N*a)+i] * connected[(N*b)+j] 
+      #########################################################################
+      
       self.traceout_1p(mth_atom.state[alpha][1], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][1], m, alpha)
       
       mth_atom.state[alpha][2] = np.copy(self.steady_state)
       self.tilde_trans(mth_atom.state[alpha][2],2,m)
+      
+      ###############MANUALLY RECONNECT. THIS NEEDS TO BE IMPROVED##############
+      connected = np.copy(mth_atom.state[alpha][2])
+      for a in xrange(3):
+          for b in xrange(3):
+             for i in xrange(N):
+               for j in xrange(N):
+                    mth_atom.state[alpha][2][3*N:][(b+3*a)*N*N+(j+N*i)]  =\
+                                connected[3*N:][(b+3*a)*N*N+(j+N*i)] -\
+                                         connected[(N*a)+i] * connected[(N*b)+j]
+      #########################################################################
+      
       self.traceout_1p(mth_atom.state[alpha][2], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][2], m, alpha)
 	  
