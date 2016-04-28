@@ -187,12 +187,14 @@ class BBGKY_System_Eqm:
        #First disconnect the state
        self.disconnect(state)
        #Then apply the tilde transform
-       state_1p = state[0:3*N].reshape(3,N)
-       state_2p = state[3*N:].reshape(3,3,N,N)
-       #reconnect the disconnected correlators
+       state_1p = np.copy(state[0:3*N])
+       state_2p = np.copy(state)
+       state_1p = state_1p.reshape(3,N)
+       state_2p = state_2p.reshape(3,3,N,N)
+       #Manually reconnect the disconnected correlators
        state2p_conn = state_2p - np.einsum("am,bn->abmn",state_1p,state_1p)
-       newstate_1p = state_1p
-       newstate_2p = state_2p
+       newstate_1p = np.copy(state_1p)
+       newstate_2p = np.copy(state_2p)
        denr = 1.0 + state_1p[a,m]
        #This is eq 60
        newstate_1p += state_2p[a,:,m,:]
@@ -206,8 +208,9 @@ class BBGKY_System_Eqm:
        newstate_2p += state_3p[a,:,:,m,:,:]
        newstate_2p /= denr
        state = np.concatenate((newstate_1p.flatten(), newstate_2p.flatten()))
-       #Reconnect the state.
        self.reconnect(state)
+       #Cleanup
+       del state_1p, state_2p, newstate_1p, newstate_2p
 
   def normalization(self):
     """
