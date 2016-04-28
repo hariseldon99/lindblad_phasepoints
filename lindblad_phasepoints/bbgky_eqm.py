@@ -136,24 +136,26 @@ class BBGKY_System_Eqm:
     self.gammamat = self.gammamat + self.gammamat.T
     
   def disconnect(self,state):
-	  """
+      """
 	  Disconnect the correlations in a state 
 	  i.e. store s^{ab}_{ij} instead of g^{ab}_{ij}
-	  """
-	  N = self.latsize
-	  state[3*N:] = (state[3*N:].reshape(3,3,N,N) + \
-		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\
-              state[0:3*N].reshape(3,N))).flatten()
+	 """
+      N = self.latsize
+      temp = np.copy(state)
+      state[3*N:] = (temp[3*N:].reshape(3,3,N,N) + \
+		np.einsum("ai,bj->abij", temp[0:3*N].reshape(3,N),\
+              temp[0:3*N].reshape(3,N))).flatten()        
 			
   def reconnect(self,state):
-	  """
+      """
 	  Reconnect the correlations in a disconnected state 
 	  i.e. store g^{ab}_{ij} instead of s^{ab}_{ij}
-	  """
-	  N = self.latsize
-	  state[3*N:] = (state[3*N:].reshape(3,3,N,N) - \
-		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\
-              state[0:3*N].reshape(3,N))).flatten()
+	"""
+      N = self.latsize
+      temp = np.copy(state)
+      state[3*N:] = (temp[3*N:].reshape(3,3,N,N) - \
+		np.einsum("ai,bj->abij", temp[0:3*N].reshape(3,N),\
+              temp[0:3*N].reshape(3,N))).flatten()
 
   def traceout_1p (self, state, m, alpha):
 	  """
@@ -204,11 +206,9 @@ class BBGKY_System_Eqm:
        newstate_2p += state_3p[a,:,:,m,:,:]
        newstate_2p /= denr
        state = np.concatenate((newstate_1p.flatten(), newstate_2p.flatten()))
-       #Reconnect the state. SOMEHOW. THIS IS CREATING PROBLEMS WITH SETTING THE IC
-       #EVEN THOUGH THE ALGORITHM IS CORRECT!!!
-       #self.reconnect(state)
+       #Reconnect the state.
+       self.reconnect(state)
 
-	  
   def normalization(self):
     """
     Normalize the equilibrium steady state correlations according to
@@ -409,40 +409,18 @@ class BBGKY_System_Eqm:
       #Eq 64 in lorenzo's writeup for a = x or 0
       mth_atom.state[alpha][0] = np.copy(self.steady_state)
       self.tilde_trans(mth_atom.state[alpha][0],0,m)
-      ###############MANUALLY RECONNECT. THIS NEEDS TO BE IMPROVED#############
-      state = np.copy(mth_atom.state[alpha][0])
-      state[3*N:] = (state[3*N:].reshape(3,3,N,N) - \
-		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\
-              state[0:3*N].reshape(3,N))).flatten()
-      mth_atom.state[alpha][0] = np.copy(state)
-      #########################################################################
       self.traceout_1p(mth_atom.state[alpha][0], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][0], m, alpha)
       #Eq 64 in lorenzo's writeup for a = y or 1
       mth_atom.state[alpha][1] = np.copy(self.steady_state)
-      self.tilde_trans(mth_atom.state[alpha][1],1,m)
-      ###############MANUALLY RECONNECT. THIS NEEDS TO BE IMPROVED#############
-      state = np.copy(mth_atom.state[alpha][1])
-      state[3*N:] = (state[3*N:].reshape(3,3,N,N) - \
-		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\
-              state[0:3*N].reshape(3,N))).flatten()
-      mth_atom.state[alpha][1] = np.copy(state)
-      #########################################################################
+      self.tilde_trans(mth_atom.state[alpha][1],1,m)#
       self.traceout_1p(mth_atom.state[alpha][1], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][1], m, alpha)
       #Eq 64 in lorenzo's writeup for a = z or 2      
       mth_atom.state[alpha][2] = np.copy(self.steady_state)
       self.tilde_trans(mth_atom.state[alpha][2],2,m)
-      ###############MANUALLY RECONNECT. THIS NEEDS TO BE IMPROVED#############
-      state = np.copy(mth_atom.state[alpha][2])
-      state[3*N:] = (state[3*N:].reshape(3,3,N,N) - \
-		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\
-              state[0:3*N].reshape(3,N))).flatten()
-      mth_atom.state[alpha][2] = np.copy(state)      
-      #########################################################################
       self.traceout_1p(mth_atom.state[alpha][2], m, alpha)
       self.traceout_2p(mth_atom.state[alpha][2], m, alpha)
-	  
 	#Eq 65 in Lorenzo's writeup:
       mth_atom.state[alpha][3] = np.copy(self.steady_state)
       self.traceout_1p(mth_atom.state[alpha][3], m, alpha)
