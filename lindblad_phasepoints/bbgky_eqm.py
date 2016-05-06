@@ -182,8 +182,9 @@ class BBGKY_System_Eqm:
     	  a = x,y,z i.e. 0,1,2
        """
        N = self.latsize
-       #First disconnect the state
-       self.disconnect(state)
+       #First, Disconnect the state.SOMEHOW. THIS IS CREATING PROBLEMS WITH SETTING THE IC
+       #EVEN THOUGH THE ALGORITHM IS CORRECT!!!
+       #self.disconnect(state)
        #Then apply the tilde transform
        state_1p = state[0:3*N].reshape(3,N)
        state_2p = state[3*N:].reshape(3,3,N,N)
@@ -408,6 +409,13 @@ class BBGKY_System_Eqm:
       
       #Eq 64 in lorenzo's writeup for a = x or 0
       mth_atom.state[alpha][0] = np.copy(self.steady_state)
+      ###############MANUALLY DISCONNECT######################################
+      state = np.copy(mth_atom.state[alpha][0])
+      state[3*N:] = (state[3*N:].reshape(3,3,N,N) + \
+		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\
+              state[0:3*N].reshape(3,N))).flatten()
+      mth_atom.state[alpha][0] = np.copy(state)
+      #########################################################################        
       self.tilde_trans(mth_atom.state[alpha][0],0,m)
       ###############MANUALLY RECONNECT. THIS NEEDS TO BE IMPROVED#############
       state = np.copy(mth_atom.state[alpha][0])
@@ -420,6 +428,13 @@ class BBGKY_System_Eqm:
       self.traceout_2p(mth_atom.state[alpha][0], m, alpha)
       #Eq 64 in lorenzo's writeup for a = y or 1
       mth_atom.state[alpha][1] = np.copy(self.steady_state)
+      ###############MANUALLY DISCONNECT######################################
+      state = np.copy(mth_atom.state[alpha][1])
+      state[3*N:] = (state[3*N:].reshape(3,3,N,N) + \
+		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\
+              state[0:3*N].reshape(3,N))).flatten()
+      mth_atom.state[alpha][1] = np.copy(state)
+      #########################################################################
       self.tilde_trans(mth_atom.state[alpha][1],1,m)
       ###############MANUALLY RECONNECT. THIS NEEDS TO BE IMPROVED#############
       state = np.copy(mth_atom.state[alpha][1])
@@ -432,6 +447,13 @@ class BBGKY_System_Eqm:
       self.traceout_2p(mth_atom.state[alpha][1], m, alpha)
       #Eq 64 in lorenzo's writeup for a = z or 2      
       mth_atom.state[alpha][2] = np.copy(self.steady_state)
+      ###############MANUALLY DISCONNECT######################################
+      state = np.copy(mth_atom.state[alpha][2])
+      state[3*N:] = (state[3*N:].reshape(3,3,N,N) + \
+		np.einsum("ai,bj->abij", state[0:3*N].reshape(3,N),\
+              state[0:3*N].reshape(3,N))).flatten()
+      mth_atom.state[alpha][2] = np.copy(state)
+      #########################################################################
       self.tilde_trans(mth_atom.state[alpha][2],2,m)
       ###############MANUALLY RECONNECT. THIS NEEDS TO BE IMPROVED#############
       state = np.copy(mth_atom.state[alpha][2])
