@@ -1,4 +1,4 @@
-0.1 Profile odeint of steady state with that of Lorenzo's code. Why is his (seemingly) faster???
-
-1. Docs! Docs! Lotsa work on the docs.
-2. Evaluate site correlations as functions of time and dump the whole data to parallel hdf5
+1. Profile odeint of steady state with that of Lorenzo's code. Why is his (seemingly) faster???
+2. Look into CUDA/GPU FFTs for doing the spectrum
+3. Evaluate site correlations as functions of time and dump the whole data to parallel hdf5
+4. Docs! Docs! Lotsa work on the docs.
