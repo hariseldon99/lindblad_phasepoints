@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import sys
+#from pprint import pprint
+from tabulate import tabulate
 import numpy as np
 from mpi4py import MPI
 import lindblad_phasepoints as lb
@@ -9,7 +11,7 @@ def run_lb():
   comm = MPI.COMM_WORLD
   group = comm.Get_group()  
 
-  tc = 50 #Time chunks
+  tc = 80 #Time chunks
   
   #Parameters
   amp = 8.0
@@ -17,7 +19,7 @@ def run_lb():
   rho = 0.36
   momenta = np.array([[0.0, 0.0, 1.0]])
   #latsizes = np.array([7, 14, 21, 28, 35])
-  latsizes = np.array([2, 4, 6])
+  latsizes = np.array([21, 28, 35])
   
   #Make sure that the main communicator is as big as the biggest lattice size
   if comm.Get_rank() == 0:
@@ -39,6 +41,7 @@ def run_lb():
   timestep = times[1]-times[0]
   
   for l in latsizes:
+      wt = MPI.Wtime()
       #Create a new communicator of size l from the main one
       newranks = np.arange(l)  
       newgroup = group.Incl(newranks)
@@ -52,7 +55,7 @@ def run_lb():
           p = lb.ParamData(latsize=l, amplitude=amp, detuning=det,\
           cloud_rad=r, kvecs=momenta)
           #Initiate the DTWA system with the parameters
-          d = lb.BBGKY_System_Eqm(p, newcomm, verbose=True)
+          d = lb.BBGKY_System_Eqm(p, newcomm, verbose=False)
           (corrdata_f, distribution, atoms_info) = d.evolve(times, nchunks=tc)
           #Flip the system and rerun for backward time dynamics        
           d.drv_amp, d.drv_freq = -d.drv_amp, -d.drv_freq
@@ -78,9 +81,15 @@ def run_lb():
                                 			   		"_theta_0" + ".txt"
 		        np.savetxt(fname, np.vstack((2.0 * np.pi * freqs.real,\
                 		                           np.abs(spectrum))).T, delimiter=' ')
-      
-          newcomm.Free()
-          newgroup.Free()
+      if comm.Get_rank() in newranks:
+      	 if rank == 0:
+	    print "size = ", l , "Walltime in secs = ", MPI.Wtime() - wt
+	    print "Atom positions:"
+            #pprint(atoms_info, width=1)
+            print tabulate(atoms_info, headers="keys")
+      	 newcomm.Free()
+      newgroup.Free()
+
 
 if __name__ == '__main__':
   run_lb()
