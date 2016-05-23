@@ -1,8 +1,8 @@
 #!/bin/bash
 #########################################################################
 ## Name of my job
-#PBS -N lindblad_eqn
-#PBS -l walltime=24:00:00
+#PBS -N lindblad_largeN
+#PBS -l walltime=96:00:00
 #########################################################################
 ##Export all PBS environment variables
 #PBS -V
@@ -15,13 +15,13 @@
 ##Number of nodes and procs per node.
 ##The ib at the end means infiniband. Use that or else MPI gets confused 
 ##with ethernet
-#PBS -l select=1:ncpus=7:mpiprocs=7,place=scatter
+#PBS -l select=7:ncpus=1:mpiprocs=1,place=scatter
 #########################################################################
 ##Send me email when my job aborts, begins, or ends
 #PBS -m ea
 #PBS -M daneel@sun.ac.za
 #########################################################################
-SCRIPT="./compute_pi.py"
+SCRIPT="./test_run.py"
 
 cd $PBS_O_WORKDIR
 
