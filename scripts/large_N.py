@@ -21,7 +21,7 @@ def run_lb():
   
   #Make sure that the main communicator is as big as the biggest lattice size
   if comm.Get_rank() == 0:
-      if np.amax(latsizes) <= comm.Get_size():
+      if np.amax(latsizes) > comm.Get_size():
           print "Error, MPI Communicator too small." 
           print "Size is", comm.Get_size()
           print "Needed size is at least", np.amax(latsizes)
