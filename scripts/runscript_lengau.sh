@@ -15,12 +15,13 @@
 ##Number of nodes and procs/mpiprocs per node.
 #PBS -l select=3:ncpus=24:mpiprocs=18:nodetype=haswell_reg
 #PBS -q normal
+#PBS -P PHYS0853
 #########################################################################
 ##Send me email when my job aborts, begins, or ends
 #PBS -m ea
 #PBS -M daneel@utexas.edu
 #########################################################################
-SCRIPT = "./large_N.py"
+SCRIPT="./large_N.py"
 # Make sure I'm the only one that can read my output
 umask 0077
 #Set BLAS threads to 2 per MPI process
