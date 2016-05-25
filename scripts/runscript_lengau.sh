@@ -27,7 +27,7 @@ umask 0077
 #Set BLAS threads to 2 per MPI process
 export OMP_NUM_THREADS=2
 # Load the module system
-
+module load chpc/python/anaconda/2
 cd $PBS_O_WORKDIR
 
 #########################################################################
