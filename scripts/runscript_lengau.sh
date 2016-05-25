@@ -13,7 +13,7 @@
 #PBS -j oe 
 #########################################################################
 ##Number of nodes and procs/mpiprocs per node.
-#PBS -l select=3:ncpus=24:mpiprocs=18:nodetype=haswell_reg
+#PBS -l select=4:ncpus=18:mpiprocs=9:nodetype=haswell_reg
 #PBS -q normal
 #PBS -P PHYS0853
 #########################################################################
