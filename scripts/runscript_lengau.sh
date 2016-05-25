@@ -1,35 +1,31 @@
 #!/bin/bash
 #########################################################################
 ## Name of my job
-#PBS -N test
-#PBS -l walltime=1:00:00
+#PBS -N large_N
+#PBS -l walltime=48:00:00
 #########################################################################
 ##Export all PBS environment variables
 #PBS -V
 #########################################################################
 ##Output file. Combine stdout and stderr into one
-#PBS -o /lustre/SCRATCH5/users/aroy/stdout.dat
-#PBS -e /lustre/SCRATCH5/users/aroy/stderr.dat
+#PBS -o /mnt/lustre/users/aroy/stdout.dat
+#PBS -e /mnt/lustre/users/aroy/stderr.dat
 #PBS -j oe 
 #########################################################################
-##Number of nodes and procs per node.
-##See docs at http://wiki.chpc.ac.za/howto:pbs-pro_job_submission_examples 
-#PBS -l select=5:ncpus=8:mpiprocs=8
+##Number of nodes and procs/mpiprocs per node.
+#PBS -l select=3:ncpus=24:mpiprocs=18:nodetype=haswell_reg
+#PBS -q normal
 #########################################################################
 ##Send me email when my job aborts, begins, or ends
 #PBS -m ea
-#PBS -M daneel@sun.ac.za
+#PBS -M daneel@utexas.edu
 #########################################################################
-SCRIPT = "./dtwa_2d_spins.py"
+SCRIPT = "./large_N.py"
 # Make sure I'm the only one that can read my output
 umask 0077
+#Set BLAS threads to 2 per MPI process
+export OMP_NUM_THREADS=2
 # Load the module system
-source /etc/profile.d/modules.sh
-#Load relevant modules. Load them with THESE TWO LINES, NOT FROM ONE LINE
-module purge
-module load dot intel
-module load gcc/4.9.1 Anaconda/2.1.0
-module load lib/atlas/3.10.2
 
 cd $PBS_O_WORKDIR
 
