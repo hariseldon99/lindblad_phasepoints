@@ -11,7 +11,7 @@ def run_lb():
   comm = MPI.COMM_WORLD
   group = comm.Get_group()  
 
-  tc = 80 #Time chunks
+  tc = 30 #Time chunks
   
   #Parameters
   amp = 8.0
@@ -19,7 +19,7 @@ def run_lb():
   rho = 0.36
   momenta = np.array([[0.0, 0.0, 1.0]])
   #latsizes = np.array([7, 14, 21, 28, 35])
-  latsizes = np.array([21, 28, 35])
+  latsizes = np.array([28, 35])
   
   #Make sure that the main communicator is as big as the biggest lattice size
   if comm.Get_rank() == 0:
@@ -75,8 +75,6 @@ def run_lb():
         		freqs = np.fft.fftshift(np.fft.fftfreq(data.size, d=timestep))
         		spectrum = np.fft.fftshift(np.fft.fft(data))
         		#Dump each observable to a separate file
-        		np.savetxt(fname, np.vstack(\
-                       		(times_full, data.real, data.imag)).T, delimiter=' ')
         		fname = "spectrum_omega_N_" + str(l) + "amp_" + str(amp) +\
                                 			   		"_theta_0" + ".txt"
 		        np.savetxt(fname, np.vstack((2.0 * np.pi * freqs.real,\

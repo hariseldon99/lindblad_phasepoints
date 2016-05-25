@@ -2,7 +2,7 @@
 #########################################################################
 ## Name of my job
 #PBS -N lindblad_largeN
-#PBS -l walltime=96:00:00
+#PBS -l walltime=48:00:00
 #########################################################################
 ##Export all PBS environment variables
 #PBS -V
@@ -15,16 +15,16 @@
 ##Number of nodes and procs per node.
 ##The ib at the end means infiniband. Use that or else MPI gets confused 
 ##with ethernet
-#PBS -l select=7:ncpus=1:mpiprocs=1,place=scatter
+#PBS -l select=2:ncpus=36:mpiprocs=18,place=scatter
 #########################################################################
 ##Send me email when my job aborts, begins, or ends
 #PBS -m ea
 #PBS -M daneel@sun.ac.za
 #########################################################################
-SCRIPT="./test_run.py"
+SCRIPT="./large_N.py"
 
 cd $PBS_O_WORKDIR
-
+export OMP_NUM_THREADS=2
 #########################################################################
 ##Make a list of allocated nodes(cores)
 ##Note that if multiple jobs run in same directory, use different names
