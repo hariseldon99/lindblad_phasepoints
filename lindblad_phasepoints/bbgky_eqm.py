@@ -491,7 +491,7 @@ class BBGKY_System_Eqm:
 	allsizes = None
 	distrib_atoms = None
     distrib_atoms = \
-      self.comm.gather(self.local_atoms.size, distrib_atoms, root=root)
+      self.comm.gather(self.local_atoms.size, root=root)
       
     if self.comm.rank == root:
       #This is an ugly hack, but it works
