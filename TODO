@@ -1,4 +1,3 @@
-1. Profile odeint of steady state with that of Lorenzo's code. Why is his (seemingly) faster???
-2. Look into CUDA/GPU FFTs for doing the spectrum
-3. Evaluate site correlations as functions of time and dump the whole data to parallel hdf5
-4. Docs! Docs! Lotsa work on the docs.
+1. Evaluate site correlations as functions of time and dump the whole data to parallel hdf5
+2. Docs! Docs! Lotsa work on the docs.
+3. Implement T-resetting to integer multiple of detuning for eqm spectra
