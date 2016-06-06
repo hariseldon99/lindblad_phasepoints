@@ -24,8 +24,8 @@
 SCRIPT="./large_N.py"
 # Make sure I'm the only one that can read my output
 umask 0077
-#Set BLAS threads to 2 per MPI process
-export OMP_NUM_THREADS=2
+#Set BLAS threads to 1 per MPI process
+export OMP_NUM_THREADS=1
 # Load the module system
 module load chpc/python/anaconda/2
 cd $PBS_O_WORKDIR
