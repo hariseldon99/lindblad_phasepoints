@@ -12,7 +12,7 @@ except ImportError:
   pbar_avail = False
   widgets = None
 
-seed = 8
+default_seed = 8
 threshold = 1e-6
 root = 0
 #This is the kronecker delta symbol for vector indices
