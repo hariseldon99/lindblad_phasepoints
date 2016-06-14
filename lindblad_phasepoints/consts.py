@@ -1,5 +1,7 @@
+from __future__ import division, print_function
 # Some constant objects
 from numpy import eye, zeros, array
+from pprint import pprint
 
 #Progressbar widgets
 try:
@@ -43,3 +45,18 @@ ss_init_time = 0.0
 ss_final_time = 300.0
 ss_nsteps = 100000
 int_method = 'lsoda'
+
+#Verbosity function
+def verboseprint(verbosity, *args):
+    if verbosity:
+        for arg in args:
+            pprint(arg)
+        print(" ")
+
+blacklisted_keys = ["deltamn"]
+        
+#Format a dictionary for verboseprint by removing blacklisted_keys
+def vbformat(in_dict):
+    formatted =  {key:value for key, value in in_dict.items() if key not in\
+                                                         blacklisted_keys}
+    return formatted

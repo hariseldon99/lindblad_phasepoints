@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-from __future__ import division, print_function
+from __future__ import division
 from mpi4py import MPI
 from reductions import Intracomm
-import copy
 import numpy as np
 from scipy.integrate import odeint
-from pprint import pprint
 from numpy.linalg import norm
 from itertools import product, combinations
 
@@ -54,7 +52,7 @@ class BBGKY_System_Eqm:
        Paramdata 	= An instance of the class "ParamData". 
 			  See the relevant docs
        MPI_COMMUNICATOR = The MPI communicator that distributes the samples
-			  to parallel processes. Set to MPI_COMM_SELF if 
+			  to parallel processes. Set to MPI.COMM_SELF if 
 			  running serially
        atoms		= numpy array of atom objects. If 'None', then builds then
 			  atoms randomly
@@ -65,7 +63,7 @@ class BBGKY_System_Eqm:
 			  
       Return value: 
       An object that stores all the parameters above.
-    """
+    """        
     self.__dict__.update(params.__dict__)
     self.comm = mpicomm
     #Booleans for verbosity and for calculating site data
@@ -76,17 +74,14 @@ class BBGKY_System_Eqm:
     self.corr_norm = 16.0 * self.latsize
     
     if self.comm.rank == root:
-      if self.verbose:
-          out = copy.copy(self)
-          out.deltamn = 0.0
-          pprint(vars(out), depth=2)
+      verboseprint(self.verbose, vbformat(vars(self)))
       #Build the gas cloud of atoms
       if atoms == None:
 	c, self.mindist  = generate_coordinates(self.latsize,\
 	  min = self.intpt_spacing, max = self.cloud_rad, seed=seed,\
 	    verbose=self.verbose)
-	if self.verbose:
-	  print("\nDone. Minimum distance between atoms = ", self.mindist)
+	verboseprint(self.verbose, "\nDone. Minimum distance between atoms = ",\
+                                                                 self.mindist)
 	self.atoms = np.array(\
 	  [Atom(coords = c[i], index = i) for i in xrange(N)])
       elif type(atoms).__module__ == np.__name__:
@@ -277,21 +272,19 @@ class BBGKY_System_Eqm:
     i.e. correlations w.r.t. the final steady state
     """
     r_t = [None, None, None, None]
-    if self.comm.rank ==  root and self.verbose:
-        print("Starting up the BBGKY dynamics...")
+    if self.comm.rank ==  root:
+        verboseprint(self.verbose, "Starting up the BBGKY dynamics...")
     if type(times).__module__ == np.__name__ :
       #An empty grid of size N X nalphas
       #Each element of this list is a dataset
       localdata = [[None for f in range(self.local_atoms.size)] \
                                                         for kvec in self.kvecs]
-      if pbar_avail:
-          if self.comm.rank == root and self.verbose: 
-              pbar_max = self.kvecs.shape[0] * self.local_atoms.size * nalphas - 1
-              bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
-                                     max_value=pbar_max, redirect_stdout=False)
-              bar_pos = 0	   
-          if self.verbose and pbar_avail and self.comm.rank == root:
-              bar.update(bar_pos)
+      if pbar_avail and self.comm.rank == root and self.verbose: 
+          pbar_max = self.kvecs.shape[0] * self.local_atoms.size * nalphas - 1
+          bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
+                                 max_value=pbar_max, redirect_stdout=False)
+          bar_pos = 0	   
+          bar.update(bar_pos)
       for tpl, mth_atom in np.ndenumerate(self.local_atoms):
           (atom_count,) = tpl
           corrs_summedover_alpha = np.zeros((self.kvecs.shape[0], times.size),\
@@ -380,8 +373,7 @@ class BBGKY_System_Eqm:
     #internally set in "consts.py"
     #Only have root do this, then broadcast
     if self.comm.rank == root:
-        if self.verbose:
-            print("Evaluating steady state ...")
+        verboseprint(self.verbose, "Evaluating steady state ...")
         times_ss = np.linspace(ss_init_time, ss_final_time, ss_nsteps)
         a = np.zeros((3,N))
         a[2] = np.ones(N)
@@ -390,8 +382,7 @@ class BBGKY_System_Eqm:
         self.state = odeint(lindblad_bbgky_pywrap, self.steady_state, times_ss,\
                  args=(self,), Dfun=None)
         self.steady_state = self.state[-1]
-        if self.verbose:
-            print("Done!!!")
+        verboseprint(self.verbose, "Done!!!")
     
     else:
         self.steady_state = None

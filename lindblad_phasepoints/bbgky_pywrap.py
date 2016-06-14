@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from mpi4py import MPI
 import numpy as np
 import lindblad_bbgky as lb
 

@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-from __future__ import division, print_function
+from __future__ import division
 from mpi4py import MPI
 from reductions import Intracomm
-import copy
 import numpy as np
 from scipy.integrate import odeint
-from pprint import pprint
 from numpy.linalg import norm
 from itertools import product
 
@@ -54,7 +52,7 @@ class BBGKY_System_Noneqm:
        Paramdata 	= An instance of the class "ParamData". 
 			  See the relevant docs
        MPI_COMMUNICATOR = The MPI communicator that distributes the samples
-			  to parallel processes. Set to MPI_COMM_SELF if 
+			  to parallel processes. Set to MPI.COMM_SELF if 
 			  running serially
        atoms		= numpy array of atom objects. If 'None', then builds then
 			  atoms randomly
@@ -78,17 +76,14 @@ class BBGKY_System_Noneqm:
     self.corr_norm = 16.0 * self.latsize
     
     if self.comm.rank == root:
-      if self.verbose:
-          out = copy.copy(self)
-          out.deltamn = 0.0
-	  pprint(vars(out), depth=2)
+      verboseprint(self.verbose, vbformat(vars(self)))
       #Build the gas cloud of atoms
       if atoms == None:
 	c, self.mindist  = generate_coordinates(self.latsize,\
 	  min = self.intpt_spacing, max = self.cloud_rad,\
 	    verbose=self.verbose)
-	if self.verbose:
-	  print("\nDone. Minimum distance between atoms = ", self.mindist)
+	verboseprint(self.verbose, "\nDone. Minimum distance between atoms = ",\
+                                                                 self.mindist)
 	self.atoms = np.array(\
 	  [Atom(coords = c[i], index = i) for i in xrange(N)])
       elif type(atoms).__module__ == np.__name__:
@@ -152,13 +147,12 @@ class BBGKY_System_Noneqm:
     (m, coord_m) = atom.index, atom.coords
     phase_m = np.exp(1j*self.kvec.dot(coord_m))
     init_m = atom.refstate[alpha][0:N][m] + (1j) * atom.refstate[alpha][N:2*N][m] 
-    phases_conj = np.array([np.exp(-1j*self.kvec.dot(atom.coords))\
-      for atom in self.atoms])
+    phases_conj = np.array([np.exp(-1j*self.kvec.dot(a.coords))\
+      for a in self.atoms])
     return init_m * phase_m * \
       ((sdata[:, 0:N] - (1j) * sdata[:, N:2*N]).\
 	dot(phases_conj))
-      
-    
+
   def bbgky_noneqm(self, times):
     """
     Evolves the BBGKY dynamics for selected phase points
@@ -179,13 +173,11 @@ class BBGKY_System_Noneqm:
 	    self.kvecs.shape[0] * self.local_atoms.size * nalphas - 1
 	  bar = progressbar.ProgressBar(widgets=widgets_bbgky,\
 	    max_value=pbar_max, redirect_stdout=False)
-      
       bar_pos = 0	   
       if self.verbose and pbar_avail and self.comm.rank == root:
 	  bar.update(bar_pos)
       for tpl, mth_atom in np.ndenumerate(self.local_atoms):
 	(atom_count,) = tpl
-	(m, coord_m) = mth_atom.index, mth_atom.coords
 	corrs_summedover_alpha = \
 	  np.zeros((self.kvecs.shape[0], times.size), \
 	    dtype=np.complex_)
@@ -256,7 +248,6 @@ class BBGKY_System_Noneqm:
     #Empty list     
     outdata = []
     times_split = np.array_split(time_info, nchunks)
-    t_sizes = np.array([t.size for t in times_split])
     #Set the initial conditions and the reference state
     for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
       m = mth_atom.index
