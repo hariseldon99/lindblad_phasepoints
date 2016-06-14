@@ -13,7 +13,8 @@ except ImportError:
 from consts import *
 from classes import *
 
-def generate_coordinates(size, min = 0.0, max = 1.0, verbose=False):
+def generate_coordinates(size, min = 0.0, max = 1.0, seed=default_seed,\
+                                                                verbose=False):
   """
   Usage: 
   a = generate_coordinates(size, min = 0.1, max=3.0)

@@ -41,7 +41,7 @@ class BBGKY_System_Eqm:
 	This class is for the equilibrium spectra.
   """
 
-  def __init__(self, params, mpicomm, atoms=None,verbose=False):
+  def __init__(self, params, mpicomm, atoms=None, seed=default_seed, verbose=False):
     """
     Initiates an instance of the BBGKY_System_Noneqm class. Copies 
     parameters over from an instance of ParamData and stores 
@@ -83,7 +83,7 @@ class BBGKY_System_Eqm:
       #Build the gas cloud of atoms
       if atoms == None:
 	c, self.mindist  = generate_coordinates(self.latsize,\
-	  min = self.intpt_spacing, max = self.cloud_rad,\
+	  min = self.intpt_spacing, max = self.cloud_rad, seed=seed,\
 	    verbose=self.verbose)
 	if self.verbose:
 	  print("\nDone. Minimum distance between atoms = ", self.mindist)
