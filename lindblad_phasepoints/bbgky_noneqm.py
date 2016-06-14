@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 from __future__ import division, print_function
-import sys
 from mpi4py import MPI
 from reductions import Intracomm
 import copy
@@ -93,11 +92,8 @@ class BBGKY_System_Noneqm:
 	self.atoms = np.array(\
 	  [Atom(coords = c[i], index = i) for i in xrange(N)])
       elif type(atoms).__module__ == np.__name__:
-	if atoms.size >= N:
-	  self.atoms = atoms[0:N]
-	else:
-	  print("Error. Gas of atoms smaller than specified size")
-	  sys.exit(0)
+	assert (atoms.size >= N),"Error. Gas of atoms smaller than specified size"
+	self.atoms = atoms[0:N]
       else:
 	self.atoms = atoms	
       self.kr_incident = np.array([\
