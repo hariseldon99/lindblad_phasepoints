@@ -1,17 +1,17 @@
 from distutils.core import setup, Extension
 import numpy as np
-
+import os
 #Change these as needed
-blas_path = '/usr/lib64'
-blas_headers = '/usr/include'
+blas_dir = os.environ['HOME'] + "/.local/"
+blas_path = blas_dir + 'lib'
+blas_headers = blas_dir + 'include'
 #Order of optimization or any other compiler options you wanna add
 opt = "-O3"
-
 lindblad_bbgky = Extension('lindblad_bbgky',\
   include_dirs = [np.get_include(),blas_headers],\
    extra_compile_args = [opt],\
     extra_link_args = [opt],\
-    libraries = ['blas'],\
+    libraries = ['openblas'],\
       library_dirs = [blas_path],\
 	sources = ['lindblad_bbgky/bbgkymodule.c', \
 	  'lindblad_bbgky/lindblad_bbgky.c'])
