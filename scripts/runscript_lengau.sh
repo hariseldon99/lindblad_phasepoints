@@ -27,7 +27,6 @@ umask 0077
 #Set BLAS threads to 1 per MPI process
 export OMP_NUM_THREADS=1
 # Load the module system
-module load chpc/python/anaconda/2
 cd $PBS_O_WORKDIR
 
 #########################################################################
@@ -38,7 +37,7 @@ NO_OF_CORES=$(cat $PBS_NODEFILE | wc -l)
 #########################################################################
 ##Now, run the code
 BEGINTIME=$(date +"%s")
-mpirun -np $NO_OF_CORES -machinefile $PBS_NODEFILE  python -W ignore $SCRIPT 
+$HOME/miniconda2/bin/mpirun -np $NO_OF_CORES -machinefile $PBS_NODEFILE  python -W ignore $SCRIPT 
 ENDTIME=$(date +"%s")
 ELAPSED_TIME=$(($ENDTIME-$BEGINTIME))
 
