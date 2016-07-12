@@ -15,9 +15,14 @@ def lindblad_bbgky_pywrap(s, t, param):
    dsdt = np.zeros_like(s)
    dsdt = np.require(dsdt, dtype=np.float64, \
      requirements=['A', 'O', 'W', 'C'])
-   lb.bbgky(param.workspace, s, param.deltamat.flatten(), \
-     param.gammamat.flatten(), (param.drv_freq * t - param.kr_incident ),\
-       param.drv_amp, param.latsize, dsdt)
+   if param.rwa:
+       lb.bbgky_rwa(param.workspace, s, param.deltamat.flatten(), \
+                       param.gammamat.flatten(), - param.kr_incident,\
+                       param.drv_amp, param.drv_freq, param.latsize, dsdt)
+   else:
+       lb.bbgky(param.workspace, s, param.deltamat.flatten(), \
+          param.gammamat.flatten(), (param.drv_freq * t - param.kr_incident ),\
+                                  param.drv_amp, param.latsize, dsdt)
    return dsdt
 
 #The arguments for ode are switched  from those in odeint

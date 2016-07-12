@@ -208,7 +208,7 @@ class BBGKY_System_Noneqm:
 	alldata /= self.corr_norm
       return alldata
 
-  def evolve(self, time_info, nchunks=1):
+  def evolve(self, time_info, nchunks=1, rwa=False):
     """
     This function calls the lsode 'odeint' integrator from scipy package
     to evolve all the sampled initial conditions in time. 
@@ -232,6 +232,8 @@ class BBGKY_System_Noneqm:
       nchunks		=  Number of chunks. This divides "times" into nchunks 
 			      parts and runs them independently to conserve memory.
 			      Defaults to 1.
+      rwa    =  Boolean. If set, then performs the dynamics in the rotated frame
+                 i.e. the instantaneous rest frame of the drive. Default False.   
       Return value: 
       An tuple object (data, distrib, atomdata) that contains
 	data		=  A numpy array of field correlations at time wrt field at 
@@ -243,6 +245,7 @@ class BBGKY_System_Noneqm:
 	atomdata	=  A dictionary containing the indices and positions
 			   of all the atoms
     """
+    self.rwa = rwa
     #Initial time
     self.mtime = time_info[0]
     #Empty list     
