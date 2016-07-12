@@ -369,22 +369,23 @@ class BBGKY_System_Eqm:
     N = self.latsize
     #Initial time
     self.mtime = time_info[0]
-    #Empty list     
-    outdata = []
-    times_split = np.array_split(time_info, nchunks)
     #The refstate is the final steady state after a long time,
     #internally set in "consts.py"
     #Only have root do this, then broadcast
     if self.comm.rank == root:
         verboseprint(self.verbose, "Evaluating steady state ...")
         times_ss = np.linspace(ss_init_time, ss_final_time, ss_nsteps)
+        times_ss_split =  np.array_split(times_ss, ss_chunksize)
         a = np.zeros((3,N))
         a[2] = np.ones(N)
         c = np.zeros((3, 3, N, N))
         self.steady_state = np.concatenate((a.flatten(), c.flatten()))
-        self.state = odeint(lindblad_bbgky_pywrap, self.steady_state, times_ss,\
-                 args=(self,), Dfun=None)
-        self.steady_state = self.state[-1]
+        for i, times in enumerate(times_ss_split):
+            if i < len(times_ss_split)-1:
+                times[-1] = times_ss_split[i+1][0]
+            self.state = odeint(lindblad_bbgky_pywrap, self.steady_state,\
+                                                times, args=(self,), Dfun=None)
+            self.steady_state = self.state[-1]
         verboseprint(self.verbose, "Done!!!")
     
     else:
@@ -468,7 +469,10 @@ class BBGKY_System_Eqm:
     else:
         self.norms = None
     self.norms = self.comm.bcast(self.norms, root=root) 	
-  
+    
+    #Empty list     
+    outdata = []
+    times_split = np.array_split(time_info, nchunks)
     for i, times in enumerate(times_split):
       if i < len(times_split)-1:
 	times[-1] = times_split[i+1][0]
