@@ -11,6 +11,7 @@ from consts import *
 from classes import *
 from bbgky_pywrap import *
 from generate_coord import *
+from scipy.optimize import fsolve
 
 #Try to import mkl if available
 try:
@@ -497,3 +498,29 @@ class BBGKY_System_Eqm:
 	[atom.__dict__ for atom in self.atoms])
     else:
       return (None, None, None)
+      
+  def eqmstate(self, rwa = False, jacmethod = 'lgmres'):
+    N = self.latsize
+    self.rwa = rwa
+    if self.comm.rank == root:
+        verboseprint(self.verbose, "Evaluating steady state ...")
+        times_ss = np.linspace(ss_init_time, ss_final_time, ss_nsteps)
+        times_ss_split =  np.array_split(times_ss, ss_chunksize)
+        a = np.zeros((3,N))
+        a[2] = np.ones(N)
+        c = np.zeros((3, 3, N, N))
+        init_state = np.concatenate((a.flatten(), c.flatten()))
+        for i, times in enumerate(times_ss_split):
+            if i < len(times_ss_split)-1:
+                times[-1] = times_ss_split[i+1][0]
+            state = odeint(lindblad_bbgky_pywrap, init_state,\
+                                                times, args=(self,), Dfun=None)
+            steady_state = state[-1]
+        verboseprint(self.verbose, "Done!!!")
+        verboseprint(self.verbose,"Now getting fixed point by Newton-Krylov")
+        fixed_point = fsolve( lindblad_bbgky_pywrap,\
+                                        init_state,args=(ss_final_time,self))
+        verboseprint(self.verbose, "Done!!!")                                                    
+        return (steady_state, fixed_point)
+    else:
+        return (None, None)
