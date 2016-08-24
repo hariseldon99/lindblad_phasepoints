@@ -11,7 +11,7 @@ from consts import *
 from classes import *
 from bbgky_pywrap import *
 from generate_coord import *
-from scipy.optimize import fsolve
+from scipy.optimize import newton_krylov
 
 #Try to import mkl if available
 try:
@@ -518,8 +518,10 @@ class BBGKY_System_Eqm:
             steady_state = state[-1]
         verboseprint(self.verbose, "Done!!!")
         verboseprint(self.verbose,"Now getting fixed point by Newton-Krylov")
-        fixed_point = fsolve( lindblad_bbgky_pywrap,\
-                                        init_state,args=(ss_final_time,self))
+        fixed_point = newton_krylov(\
+                        lambda s:lindblad_bbgky_pywrap(\
+                          s, ss_final_time, self), init_state,\
+                                                      verbose=self.verbose)
         verboseprint(self.verbose, "Done!!!")                                                    
         return (steady_state, fixed_point)
     else:
