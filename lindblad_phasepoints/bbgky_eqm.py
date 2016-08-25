@@ -499,30 +499,51 @@ class BBGKY_System_Eqm:
     else:
       return (None, None, None)
       
-  def eqmstate(self, rwa = False, jacmethod = 'lgmres'):
+  def eqmstate(self, rwa = False):
+    """
+    Approximates the equilibrium steady state of the Lindblad dynamics
+    by evaluating the fixed point of the BBGKY dynamical equations. This
+    is done by solving d\rho/dt = L(t)->\rho = 0 using the Newton-Krylov 
+    method.
+    
+    Usage:
+       d = BBGKY_System_Eqm(Paramdata, MPI_COMMUNICATOR)
+       eqm_state = d.eqmstate(rwa = False)
+       
+    Optional Parameters:   
+       rwa    =  Boolean. If set, then performs the dynamics in the rotated frame
+                 i.e. the instantaneous rest frame of the drive. Default False.            
+    
+    Return value: 
+       Numpy array. Equilibrium state represented by the quantities 
+       np.array([sx, sy, sz, gxx, gxy, gxz, gyx, gyy, gyz, gzx, gzy, gzz])
+       where s's are blocks of spins of size N = Paramdata.latsize 
+       and the g's are NXN matrices of s-s connected correlations flattened in row 
+       major order.
+    """
     N = self.latsize
     self.rwa = rwa
     if self.comm.rank == root:
-        verboseprint(self.verbose, "Evaluating steady state ...")
-        times_ss = np.linspace(ss_init_time, ss_final_time, ss_nsteps)
-        times_ss_split =  np.array_split(times_ss, ss_chunksize)
+        #verboseprint(self.verbose, "Evaluating steady state ...")
+        #times_ss = np.linspace(ss_init_time, ss_final_time, ss_nsteps)
+        #times_ss_split =  np.array_split(times_ss, ss_chunksize)
         a = np.zeros((3,N))
         a[2] = np.ones(N)
         c = np.zeros((3, 3, N, N))
         init_state = np.concatenate((a.flatten(), c.flatten()))
-        for i, times in enumerate(times_ss_split):
-            if i < len(times_ss_split)-1:
-                times[-1] = times_ss_split[i+1][0]
-            state = odeint(lindblad_bbgky_pywrap, init_state,\
-                                                times, args=(self,), Dfun=None)
-            steady_state = state[-1]
-        verboseprint(self.verbose, "Done!!!")
-        verboseprint(self.verbose,"Now getting fixed point by Newton-Krylov")
+        #for i, times in enumerate(times_ss_split):
+        #    if i < len(times_ss_split)-1:
+        #        times[-1] = times_ss_split[i+1][0]
+        #    state = odeint(lindblad_bbgky_pywrap, init_state,\
+        #                                        times, args=(self,), Dfun=None)
+        #    steady_state = state[-1]
+        #verboseprint(self.verbose, "Done!!!")
+        verboseprint(self.verbose,"Getting fixed point by Newton-Krylov")
         fixed_point = newton_krylov(\
                         lambda s:lindblad_bbgky_pywrap(\
                           s, ss_final_time, self), init_state,\
                                                       verbose=self.verbose)
         verboseprint(self.verbose, "Done!!!")                                                    
-        return (steady_state, fixed_point)
+        return fixed_point
     else:
-        return (None, None)
+        return None
