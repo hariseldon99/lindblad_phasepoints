@@ -329,6 +329,46 @@ class BBGKY_System_Eqm:
           
       return alldata
 
+  def eqmstate(self, rwa = False):
+    """
+    Approximates the equilibrium steady state of the Lindblad dynamics
+    by evaluating the fixed point of the BBGKY dynamical equations. This
+    is done by solving d\rho/dt = L(t)->\rho = 0 using the Newton-Krylov 
+    method.
+    
+    Usage:
+       d = BBGKY_System_Eqm(Paramdata, MPI_COMMUNICATOR)
+       eqm_state = d.eqmstate(rwa = False)
+       
+    Optional Parameters:   
+       rwa    =  Boolean. If set, then performs the dynamics in the rotated frame
+                 i.e. the instantaneous rest frame of the drive. Default False.            
+    
+    Return value: 
+       Numpy array. Equilibrium state represented by the quantities 
+       np.array([sx, sy, sz, gxx, gxy, gxz, gyx, gyy, gyz, gzx, gzy, gzz])
+       where s's are blocks of spins of size N = Paramdata.latsize 
+       and the g's are NXN matrices of s-s connected correlations flattened in row 
+       major order.
+    """
+    self.rwa = rwa
+    N = self.latsize
+    #Only have root do this, then broadcast
+    if self.comm.rank == root:
+        a = np.zeros((3,N))
+        a[2] = np.ones(N)
+        c = np.zeros((3, 3, N, N))
+        init_state = np.concatenate((a.flatten(), c.flatten()))
+        fixed_point = newton_krylov(\
+                        lambda s:lindblad_bbgky_pywrap(\
+                          s, ss_final_time, self), init_state,\
+                                                      verbose=self.verbose)
+    else:
+        fixed_point = None
+        
+    fixed_point = self.comm.bcast(fixed_point, root=root)         
+    return fixed_point
+    
   def evolve(self, time_info, nchunks=1, rwa=False):
     """
     This function calls the lsode 'odeint' integrator from scipy package
@@ -370,29 +410,8 @@ class BBGKY_System_Eqm:
     N = self.latsize
     #Initial time
     self.mtime = time_info[0]
-    #The refstate is the final steady state after a long time,
-    #internally set in "consts.py"
-    #Only have root do this, then broadcast
-    if self.comm.rank == root:
-        verboseprint(self.verbose, "Evaluating steady state ...")
-        times_ss = np.linspace(ss_init_time, ss_final_time, ss_nsteps)
-        times_ss_split =  np.array_split(times_ss, ss_chunksize)
-        a = np.zeros((3,N))
-        a[2] = np.ones(N)
-        c = np.zeros((3, 3, N, N))
-        self.steady_state = np.concatenate((a.flatten(), c.flatten()))
-        for i, times in enumerate(times_ss_split):
-            if i < len(times_ss_split)-1:
-                times[-1] = times_ss_split[i+1][0]
-            self.state = odeint(lindblad_bbgky_pywrap, self.steady_state,\
-                                                times, args=(self,), Dfun=None)
-            self.steady_state = self.state[-1]
-        verboseprint(self.verbose, "Done!!!")
-    
-    else:
-        self.steady_state = None
-
-    self.steady_state = self.comm.bcast(self.steady_state, root=root)     
+    #The refstate is the final steady state as fixed point,
+    self.steady_state = self.eqmstate(rwa = self.rwa)
     #Set the initial conditions and the reference states
     for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):  
       m = mth_atom.index
@@ -498,52 +517,3 @@ class BBGKY_System_Eqm:
 	[atom.__dict__ for atom in self.atoms])
     else:
       return (None, None, None)
-      
-  def eqmstate(self, rwa = False):
-    """
-    Approximates the equilibrium steady state of the Lindblad dynamics
-    by evaluating the fixed point of the BBGKY dynamical equations. This
-    is done by solving d\rho/dt = L(t)->\rho = 0 using the Newton-Krylov 
-    method.
-    
-    Usage:
-       d = BBGKY_System_Eqm(Paramdata, MPI_COMMUNICATOR)
-       eqm_state = d.eqmstate(rwa = False)
-       
-    Optional Parameters:   
-       rwa    =  Boolean. If set, then performs the dynamics in the rotated frame
-                 i.e. the instantaneous rest frame of the drive. Default False.            
-    
-    Return value: 
-       Numpy array. Equilibrium state represented by the quantities 
-       np.array([sx, sy, sz, gxx, gxy, gxz, gyx, gyy, gyz, gzx, gzy, gzz])
-       where s's are blocks of spins of size N = Paramdata.latsize 
-       and the g's are NXN matrices of s-s connected correlations flattened in row 
-       major order.
-    """
-    N = self.latsize
-    self.rwa = rwa
-    if self.comm.rank == root:
-        #verboseprint(self.verbose, "Evaluating steady state ...")
-        #times_ss = np.linspace(ss_init_time, ss_final_time, ss_nsteps)
-        #times_ss_split =  np.array_split(times_ss, ss_chunksize)
-        a = np.zeros((3,N))
-        a[2] = np.ones(N)
-        c = np.zeros((3, 3, N, N))
-        init_state = np.concatenate((a.flatten(), c.flatten()))
-        #for i, times in enumerate(times_ss_split):
-        #    if i < len(times_ss_split)-1:
-        #        times[-1] = times_ss_split[i+1][0]
-        #    state = odeint(lindblad_bbgky_pywrap, init_state,\
-        #                                        times, args=(self,), Dfun=None)
-        #    steady_state = state[-1]
-        #verboseprint(self.verbose, "Done!!!")
-        verboseprint(self.verbose,"Getting fixed point by Newton-Krylov")
-        fixed_point = newton_krylov(\
-                        lambda s:lindblad_bbgky_pywrap(\
-                          s, ss_final_time, self), init_state,\
-                                                      verbose=self.verbose)
-        verboseprint(self.verbose, "Done!!!")                                                    
-        return fixed_point
-    else:
-        return None
