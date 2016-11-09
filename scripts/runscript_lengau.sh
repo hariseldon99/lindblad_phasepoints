@@ -33,7 +33,7 @@ cd $PBS_O_WORKDIR
 NO_OF_CORES=$(cat $PBS_NODEFILE | wc -l)
 ##Now, run the code
 BEGINTIME=$(date +"%s")
-$HOME/miniconda2/bin/mpirun -x LD_LIBRARY_PATH -np $NO_OF_CORES -machinefile $PBS_NODEFILE  python -W ignore $SCRIPT -g $LATSIZE
+$HOME/anaconda2/bin/mpirun -x LD_LIBRARY_PATH -np $NO_OF_CORES -machinefile $PBS_NODEFILE  python -W ignore $SCRIPT -g $LATSIZE
 ENDTIME=$(date +"%s")
 ELAPSED_TIME=$(($ENDTIME-$BEGINTIME))
 echo "#Runtime: $(($ELAPSED_TIME / 60)) minutes and $(($ELAPSED_TIME % 60)) seconds."
