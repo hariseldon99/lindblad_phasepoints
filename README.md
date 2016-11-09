@@ -102,10 +102,11 @@ Relevant Literature:
 
 5. The bbgky dynamics module
 
-    _\_-Python 2.x with numpy API
-
     _\_-gcc/automake (compilers for the C module)
     
     _\_-cblas - Any BLAS library written in C
 
 ###TODO:
+1. Evaluate site correlations as functions of time and dump the whole data to parallel hdf5
+2. Docs! Docs! Lotsa work on the docs.
+3. MIGRATE TO PYTHON 3. CHANGE ALL TABS TO SPACES FOR INDENTATION

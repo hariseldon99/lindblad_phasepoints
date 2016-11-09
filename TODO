@@ -1,3 +1,0 @@
-1. Evaluate site correlations as functions of time and dump the whole data to parallel hdf5
-2. Docs! Docs! Lotsa work on the docs.
-3. Implement T-resetting to integer multiple of detuning for eqm spectra

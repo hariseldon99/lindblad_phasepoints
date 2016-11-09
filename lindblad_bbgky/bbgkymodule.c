@@ -98,7 +98,7 @@ wrap_bbgky_rwa (PyObject * self, PyObject * args)
   return Py_None;
 
 fail:
-  PyErr_SetString (PyExc_StandardError,
+  PyErr_SetString (PyExc_Exception,
 		   "\n Input fail. Please check against the method's documentation");
   Py_XDECREF (workspace);
   Py_XDECREF (s);
@@ -202,7 +202,7 @@ wrap_bbgky (PyObject * self, PyObject * args)
   return Py_None;
 
 fail:
-  PyErr_SetString (PyExc_StandardError,
+  PyErr_SetString (PyExc_Exception,
 		   "\n Input fail. Please check against the method's documentation");
   Py_XDECREF (workspace);
   Py_XDECREF (s);
