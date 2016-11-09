@@ -102,6 +102,8 @@ Relevant Literature:
 
 5. The bbgky dynamics module
 
+    _\_-Python 2.x with numpy API
+
     _\_-gcc/automake (compilers for the C module)
     
     _\_-cblas - Any BLAS library written in C
