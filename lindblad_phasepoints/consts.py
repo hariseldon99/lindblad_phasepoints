@@ -5,14 +5,14 @@ from pprint import pprint
 
 #Progressbar widgets
 try:
-  from progressbar import Bar, ETA, Percentage
-  pbar_avail = True
-  widgets_rnd = ['Creating atoms: ', Percentage(), ' ', Bar(), ' ', ETA()]
-  widgets_bbgky = ['BBGKY  dynamics (root only): ',\
-    Percentage(), ' ', Bar(), ' ', ETA()]
+    from progressbar import Bar, ETA, Percentage
+    pbar_avail = True
+    widgets_rnd = ['Creating atoms: ', Percentage(), ' ', Bar(), ' ', ETA()]
+    widgets_bbgky = ['BBGKY  dynamics (root only): ',\
+      Percentage(), ' ', Bar(), ' ', ETA()]
 except ImportError:
-  pbar_avail = False
-  widgets = None
+    pbar_avail = False
+    widgets = None
 
 default_seed = 8
 threshold = 1e-6
@@ -29,13 +29,13 @@ nalphas = 8
 
 #Phase point vectors
 rvecs = array([[1., 1., 1.],
-		  [1.,-1.,-1.],
-		  [-1.,-1., 1.],
-		  [-1., 1.,-1.],
-		  [1., -1., 1.],
-		  [1., 1.,-1.],
-		  [-1., 1., 1.],
-		  [-1.,-1., -1.]])
+                  [1.,-1.,-1.],
+                  [-1.,-1., 1.],
+                  [-1., 1.,-1.],
+                  [1., -1., 1.],
+                  [1., 1.,-1.],
+                  [-1., 1., 1.],
+                  [-1.,-1., -1.]])
 
 #Maximum number of points
 bigsize = 100000
@@ -55,7 +55,7 @@ def verboseprint(verbosity, *args):
         print(" ")
 
 blacklisted_keys = ["deltamn"]
-        
+
 #Format a dictionary for verboseprint by removing blacklisted_keys
 def vbformat(in_dict):
     formatted =  {key:value for key, value in in_dict.items() if key not in\
