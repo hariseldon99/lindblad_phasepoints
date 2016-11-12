@@ -2,7 +2,7 @@ from distutils.core import setup, Extension
 import numpy as np
 import os
 #Change these as needed
-blas_dir = os.environ['HOME'] + "/.local/"
+blas_dir = '/usr/'
 blas_path = blas_dir + 'lib'
 blas_headers = blas_dir + 'include'
 #Order of optimization or any other compiler options you wanna add
