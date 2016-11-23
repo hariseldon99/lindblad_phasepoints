@@ -265,7 +265,7 @@ class BBGKY_System_Eqm:
         ph = np.exp( (1j) * kvec.dot(r_m) )
         return ph * norm * corrs_summedover_n
 
-    def bbgky_eqm(self, times):
+    def bbgky_eqm(self, times, **odeint_kwargs):
         """
         Evolves the BBGKY dynamics for selected phase points
         call with bbgky(t), where t is an array of times
@@ -292,13 +292,13 @@ class BBGKY_System_Eqm:
                                                                    dtype=np.complex_)
                 for alpha in xrange(nalphas):
                     r_t[0] = odeint(lindblad_bbgky_pywrap, mth_atom.state[alpha][0],\
-                                                      times, args=(self,), Dfun=None)
+                                                      times, args=(self,), **odeint_kwargs)
                     r_t[1] = odeint(lindblad_bbgky_pywrap, mth_atom.state[alpha][1],\
-                                                      times, args=(self,), Dfun=None)
+                                                      times, args=(self,), **odeint_kwargs)
                     r_t[2] = odeint(lindblad_bbgky_pywrap, mth_atom.state[alpha][2],\
-                                                      times, args=(self,), Dfun=None)
+                                                      times, args=(self,), **odeint_kwargs)
                     r_t[3] = odeint(lindblad_bbgky_pywrap, mth_atom.state[alpha][3],\
-                                                      times, args=(self,), Dfun=None)
+                                                      times, args=(self,), **odeint_kwargs)
                     #Update the final state
                     self.local_atoms[atom_count].state[alpha][0] = r_t[0][-1]
                     self.local_atoms[atom_count].state[alpha][1] = r_t[1][-1]
@@ -329,7 +329,7 @@ class BBGKY_System_Eqm:
 
             return alldata
 
-    def eqmstate(self, rwa = False):
+    def eqmstate(self, rwa = False, **nk_kwargs):
         """
         Approximates the equilibrium steady state of the Lindblad dynamics
         by evaluating the fixed point of the BBGKY dynamical equations. This
@@ -362,14 +362,14 @@ class BBGKY_System_Eqm:
             fixed_point = newton_krylov(\
                             lambda s:lindblad_bbgky_pywrap(\
                               s, ss_final_time, self), init_state,\
-                                                          verbose=self.verbose)
+                                             verbose=self.verbose, **nk_kwargs)
         else:
             fixed_point = None
 
         fixed_point = self.comm.bcast(fixed_point, root=root)
         return fixed_point
 
-    def evolve(self, time_info, nchunks=1, rwa=False):
+    def evolve(self, time_info, nchunks=1, rwa=False, **nk_kwargs, **odeint_kwargs):
         """
         This function calls the lsode 'odeint' integrator from scipy package
         to evolve all the sampled initial conditions in time.
@@ -383,7 +383,7 @@ class BBGKY_System_Eqm:
            Usage:
            data = d.evolve(times, nchunks=100)
 
-           Required parameters:
+           Parameters:
            times            =  Time information. Must be a list or numpy array
                                with the times entered. Need not be uniform
 
@@ -395,6 +395,9 @@ class BBGKY_System_Eqm:
                                   Defaults to 1.
           rwa    =  Boolean. If set, then performs the dynamics in the rotated frame
                      i.e. the instantaneous rest frame of the drive. Default False.
+          nk_kwargs = Keyword arguments for scipy.optimize.newton_krylov (for fixed point)
+          odeint_kwargs = Keyword arguments for scipy.integrate.odeint          
+                     
           Return value:
           An tuple object (data, distrib, atomdata) that contains
             data            =  A numpy array of field correlations at time wrt field at
@@ -411,7 +414,7 @@ class BBGKY_System_Eqm:
         #Initial time
         self.mtime = time_info[0]
         #The refstate is the final steady state as fixed point,
-        self.steady_state = self.eqmstate(rwa = self.rwa)
+        self.steady_state = self.eqmstate(rwa = self.rwa, **nk_kwargs)
         #Set the initial conditions and the reference states
         for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
             m = mth_atom.index
@@ -496,7 +499,7 @@ class BBGKY_System_Eqm:
         for i, times in enumerate(times_split):
             if i < len(times_split)-1:
                 times[-1] = times_split[i+1][0]
-            outdata.append(self.bbgky_eqm(times))
+            outdata.append(self.bbgky_eqm(times, **odeint_kwargs))
 
         if self.comm.rank == root:
             allsizes = np.zeros(self.comm.size)

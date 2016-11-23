@@ -153,7 +153,7 @@ class BBGKY_System_Noneqm:
           ((sdata[:, 0:N] - (1j) * sdata[:, N:2*N]).\
             dot(phases_conj))
 
-    def bbgky_noneqm(self, times):
+    def bbgky_noneqm(self, times, **odeint_kwargs):
         """
         Evolves the BBGKY dynamics for selected phase points
         call with bbgky(t), where t is an array of times
@@ -183,7 +183,8 @@ class BBGKY_System_Noneqm:
                     dtype=np.complex_)
                 for alpha in xrange(nalphas):
                     s_t = odeint(lindblad_bbgky_pywrap, \
-                      mth_atom.state[alpha], times, args=(self,), Dfun=None)
+                      mth_atom.state[alpha], times, args=(self,), Dfun=None, **odeint_kwargs)
+                    (s_t, info) = s_t if type(s_t) is tuple else (s_t, None)  
                     #Update the final state
                     self.local_atoms[atom_count].state[alpha] = s_t[-1]
                     for kcount in xrange(self.kvecs.shape[0]):
@@ -206,9 +207,12 @@ class BBGKY_System_Noneqm:
 
             if self.comm.rank == root:
                 alldata /= self.corr_norm
+            if self.verbose and self.comm.rank == root:
+                print("Integrator info:")
+                pprint(info)
             return alldata
 
-    def evolve(self, time_info, nchunks=1, rwa=False):
+    def evolve(self, time_info, nchunks=1, rwa=False, **odeint_kwargs):
         """
         This function calls the lsode 'odeint' integrator from scipy package
         to evolve all the sampled initial conditions in time.
@@ -220,7 +224,7 @@ class BBGKY_System_Noneqm:
 
 
            Usage:
-           data = d.evolve(times, nchunks=100)
+           data = d.evolve(times, nchunks=100,kwargs)
 
            Required parameters:
            times            =  Time information. Must be a list or numpy array
@@ -228,6 +232,7 @@ class BBGKY_System_Noneqm:
 
                                Note that the integrator method and the actual step sizes
                                are controlled internally by the integrator.
+                               Add arguments passed to that through "kwargs"
                                See the relevant docs for scipy.integrate.odeint.
           nchunks           =  Number of chunks. This divides "times" into nchunks
                                   parts and runs them independently to conserve memory.
@@ -261,7 +266,7 @@ class BBGKY_System_Noneqm:
         for i, times in enumerate(times_split):
             if i < len(times_split)-1:
                 times[-1] = times_split[i+1][0]
-            outdata.append(self.bbgky_noneqm(times))
+            outdata.append(self.bbgky_noneqm(times, **odeint_kwargs))
 
         if self.comm.rank == root:
             allsizes = np.zeros(self.comm.size)
