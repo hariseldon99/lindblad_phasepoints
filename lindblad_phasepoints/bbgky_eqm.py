@@ -329,7 +329,7 @@ class BBGKY_System_Eqm:
 
             return alldata
 
-    def eqmstate(self, rwa = False, **nk_kwargs):
+    def eqmstate(self, rwa = False):
         """
         Approximates the equilibrium steady state of the Lindblad dynamics
         by evaluating the fixed point of the BBGKY dynamical equations. This
@@ -362,14 +362,14 @@ class BBGKY_System_Eqm:
             fixed_point = newton_krylov(\
                             lambda s:lindblad_bbgky_pywrap(\
                               s, ss_final_time, self), init_state,\
-                                             verbose=self.verbose, **nk_kwargs)
+                                                         verbose=self.verbose)
         else:
             fixed_point = None
 
         fixed_point = self.comm.bcast(fixed_point, root=root)
         return fixed_point
 
-    def evolve(self, time_info, nchunks=1, rwa=False, **nk_kwargs, **odeint_kwargs):
+    def evolve(self, time_info, nchunks=1, rwa=False, **odeint_kwargs):
         """
         This function calls the lsode 'odeint' integrator from scipy package
         to evolve all the sampled initial conditions in time.
@@ -395,7 +395,6 @@ class BBGKY_System_Eqm:
                                   Defaults to 1.
           rwa    =  Boolean. If set, then performs the dynamics in the rotated frame
                      i.e. the instantaneous rest frame of the drive. Default False.
-          nk_kwargs = Keyword arguments for scipy.optimize.newton_krylov (for fixed point)
           odeint_kwargs = Keyword arguments for scipy.integrate.odeint          
                      
           Return value:
@@ -414,7 +413,7 @@ class BBGKY_System_Eqm:
         #Initial time
         self.mtime = time_info[0]
         #The refstate is the final steady state as fixed point,
-        self.steady_state = self.eqmstate(rwa = self.rwa, **nk_kwargs)
+        self.steady_state = self.eqmstate(rwa = self.rwa)
         #Set the initial conditions and the reference states
         for (alpha, mth_atom) in product(np.arange(nalphas), self.local_atoms):
             m = mth_atom.index
