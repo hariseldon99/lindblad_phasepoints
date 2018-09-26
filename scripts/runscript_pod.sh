@@ -7,7 +7,7 @@
 #PBS -q S30
 
 ## Walltime
-#PBS -l walltime=00:10:00
+#PBS -l walltime=00:02:00
 
 ##Number of nodes and procs per node.
 #PBS -l nodes=1:ppn=7
@@ -24,6 +24,7 @@ SCRIPT="./large_N.py"
 #PBS -V
 ##Output file. Combine stdout and stderr into one
 #PBS -j oe
+cd $PBS_O_WORKDIR
 ## Number of OpenMP threads to be used by the blas library. Keep this small
 export OMP_NUM_THREADS=2
 ##Load these modules before running
